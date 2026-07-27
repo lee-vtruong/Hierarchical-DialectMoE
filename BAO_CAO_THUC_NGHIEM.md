@@ -412,3 +412,89 @@ Acoustic-only là baseline mạnh ở mức vùng nhưng yếu hơn rõ rệt �
 Kết quả hiện hỗ trợ việc tiếp tục nghiên cứu prosody/MoE cho fine-grained
 dialect identification, nhưng chưa đủ để xác nhận riêng giả thuyết H1, H2 hay
 H4.
+
+## 9. Ablation A2 - Acoustic + prosody, không MoE
+
+Cấu hình `configs/experiments/acoustic_prosody.yaml` sử dụng:
+
+- Wav2Vec2 acoustic encoder.
+- Bộ đặc trưng prosody thống kê.
+- Gated fusion.
+- Region và province classification heads.
+- Không sử dụng hierarchical routing để tạo prediction.
+- Không sử dụng Mixture-of-Experts.
+
+### 9.1 Kết quả test
+
+| Metric | Acoustic + prosody |
+|---|---:|
+| Region accuracy | 0,9003 |
+| Region balanced accuracy | 0,8953 |
+| Region macro-F1 | 0,8966 |
+| Province accuracy | 0,4329 |
+| Province balanced accuracy | 0,4365 |
+| Province macro-F1 | 0,4268 |
+
+Kết quả theo vùng:
+
+| Vùng | Precision | Recall | F1 |
+|---|---:|---:|---:|
+| Central | 0,9075 | 0,8186 | 0,8608 |
+| North | 0,9059 | 0,9591 | 0,9318 |
+| South | 0,8866 | 0,9081 | 0,8972 |
+
+### 9.2 Đóng góp của prosody
+
+| Metric | Acoustic-only | Acoustic + prosody | Cải thiện |
+|---|---:|---:|---:|
+| Region accuracy | 0,8929 | **0,9003** | **+0,0074** |
+| Region balanced accuracy | 0,8868 | **0,8953** | **+0,0085** |
+| Region macro-F1 | 0,8882 | **0,8966** | **+0,0083** |
+| Province accuracy | 0,3786 | **0,4329** | **+0,0543** |
+| Province balanced accuracy | 0,3801 | **0,4365** | **+0,0564** |
+| Province macro-F1 | 0,3763 | **0,4268** | **+0,0505** |
+
+Prosody cải thiện:
+
+- Khoảng 0,74-0,85 điểm phần trăm cho bài toán ba vùng.
+- Khoảng 5,05-5,64 điểm phần trăm cho bài toán cấp tỉnh.
+
+Đây là bằng chứng seed 42 hỗ trợ giả thuyết H1: prosody bổ sung thông tin hữu
+ích, đặc biệt cho fine-grained dialect identification.
+
+Province code 68 tăng từ F1 bằng 0 ở acoustic-only lên 0,3509 khi thêm prosody.
+Điều này cho thấy các đặc trưng ngữ điệu có thể đặc biệt hữu ích cho một số
+tỉnh mà acoustic pooled embedding chưa phân biệt được.
+
+### 9.3 So sánh với MVP Hierarchical MoE
+
+| Metric | Acoustic + prosody | MVP MoE epoch 10 | MoE - không MoE |
+|---|---:|---:|---:|
+| Region accuracy | **0,9003** | 0,8954 | -0,0049 |
+| Region balanced accuracy | **0,8953** | 0,8901 | -0,0051 |
+| Region macro-F1 | **0,8966** | 0,8913 | -0,0053 |
+| Province accuracy | 0,4329 | **0,4418** | +0,0089 |
+| Province balanced accuracy | 0,4365 | **0,4437** | +0,0072 |
+| Province macro-F1 | 0,4268 | **0,4380** | +0,0112 |
+
+MVP MoE chỉ tăng thêm khoảng 0,72-1,12 điểm phần trăm ở cấp tỉnh so với
+acoustic + prosody, đồng thời giảm khoảng 0,49-0,53 điểm phần trăm ở cấp vùng.
+
+Phần lớn mức tăng từ acoustic-only lên MVP MoE đến từ prosody:
+
+- Tổng mức tăng province accuracy: +6,32 điểm phần trăm.
+- Riêng prosody tạo mức tăng: +5,43 điểm phần trăm.
+- Phần chênh lệch còn lại khi thêm hierarchical MoE: +0,89 điểm phần trăm.
+
+Do MVP router bị collapse, chưa thể kết luận mức tăng còn lại là đóng góp ổn
+định của MoE. Cần flat-MoE và balanced-MoE ablations.
+
+### 9.4 Kết luận tạm thời về H1
+
+H1 được hỗ trợ trong lần chạy seed 42:
+
+> Đặc trưng prosody giúp cải thiện nhận diện phương ngữ tiếng Việt.
+
+Tuy nhiên, để dùng ngôn ngữ “cải thiện có ý nghĩa thống kê”, cần chạy ít nhất
+ba seed và bootstrap/paired test trên prediction-level outputs. Metrics tổng
+hợp của một seed chưa đủ cho kiểm định thống kê.
