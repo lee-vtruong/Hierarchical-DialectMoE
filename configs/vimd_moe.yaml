@@ -1,0 +1,46 @@
+seed: 42
+
+data:
+  dataset_name: nguyendv02/ViMD_Dataset
+  local_dir: data/ViMD_Dataset
+  cache_dir: data/huggingface
+  audio_column: audio
+  region_column: region
+  province_column: province_code
+  speaker_column: speakerID
+  sample_rate: 16000
+  max_seconds: 20.0
+  num_workers: 4
+
+model:
+  backbone: facebook/wav2vec2-base
+  freeze_feature_encoder: true
+  freeze_backbone: false
+  gradient_checkpointing: true
+  acoustic_dim: 256
+  prosody_dim: 128
+  fusion_dim: 384
+  num_experts: 8
+  top_k: 2
+  expert_hidden_dim: 512
+  dropout: 0.2
+
+training:
+  output_dir: outputs/vimd_moe
+  epochs: 20
+  batch_size: 4
+  gradient_accumulation_steps: 8
+  learning_rate: 0.00002
+  head_learning_rate: 0.0002
+  weight_decay: 0.01
+  warmup_ratio: 0.1
+  max_grad_norm: 1.0
+  mixed_precision: fp16
+  early_stopping_patience: 5
+  log_every: 20
+
+loss:
+  region_weight: 0.4
+  province_weight: 1.0
+  router_weight: 0.1
+  load_balance_weight: 0.01

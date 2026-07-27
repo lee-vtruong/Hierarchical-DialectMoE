@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hierarchical-dialect-moe"
+version = "0.1.0"
+description = "Prosody-aware hierarchical MoE for Vietnamese dialect identification"
+requires-python = ">=3.10"
+dynamic = ["dependencies"]
+
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements.txt"]}
+
+[tool.setuptools.packages.find]
+include = ["dialect_moe*"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+

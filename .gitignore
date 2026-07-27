@@ -1,0 +1,14 @@
+data/
+artifacts/
+checkpoints/
+outputs/
+wandb/
+.cache/
+.pytest_cache/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.env
+external/
+*.pdf

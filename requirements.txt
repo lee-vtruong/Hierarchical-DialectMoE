@@ -1,0 +1,12 @@
+torch>=2.3
+transformers>=4.42
+datasets[audio]>=2.20
+huggingface_hub>=0.23
+accelerate>=0.31
+librosa>=0.10.2
+soundfile>=0.12
+scikit-learn>=1.4
+numpy>=1.26
+PyYAML>=6.0
+tqdm>=4.66
+gdown>=5.2
