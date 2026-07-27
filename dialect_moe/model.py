@@ -98,6 +98,12 @@ class HierarchicalDialectMoE(nn.Module):
             model_config["backbone"],
             use_safetensors=True,
         )
+        self.use_acoustic = bool(model_config.get("use_acoustic", True))
+        self.use_prosody = bool(model_config.get("use_prosody", True))
+        self.use_hierarchical_router = bool(
+            model_config.get("use_hierarchical_router", True)
+        )
+        self.use_moe = bool(model_config.get("use_moe", True))
         backbone_dim = int(self.backbone.config.hidden_size)
 
         if model_config.get("gradient_checkpointing", False):
@@ -112,6 +118,8 @@ class HierarchicalDialectMoE(nn.Module):
         dropout = float(model_config["dropout"])
         acoustic_dim = int(model_config["acoustic_dim"])
         prosody_dim = int(model_config["prosody_dim"])
+        self.acoustic_dim = acoustic_dim
+        self.prosody_dim = prosody_dim
         fusion_dim = int(model_config["fusion_dim"])
         num_experts = int(model_config["num_experts"])
 
@@ -164,15 +172,33 @@ class HierarchicalDialectMoE(nn.Module):
             input_values=input_values,
             attention_mask=attention_mask,
         ).last_hidden_state
-        acoustic = self.acoustic_projection(self._masked_mean(encoded, attention_mask))
-        prosodic = self.prosody_encoder(prosody)
+        if self.use_acoustic:
+            acoustic = self.acoustic_projection(
+                self._masked_mean(encoded, attention_mask)
+            )
+        else:
+            acoustic = encoded.new_zeros(encoded.shape[0], self.acoustic_dim)
+        if self.use_prosody:
+            prosodic = self.prosody_encoder(prosody)
+        else:
+            prosodic = acoustic.new_zeros(acoustic.shape[0], self.prosody_dim)
         joined = torch.cat([acoustic, prosodic], dim=-1)
         fused = self.fusion_projection(joined) * self.fusion_gate(joined)
 
         region_logits = self.region_head(fused)
-        region_context = self.region_embedding(torch.softmax(region_logits, dim=-1))
+        if self.use_hierarchical_router:
+            region_context = self.region_embedding(torch.softmax(region_logits, dim=-1))
+        else:
+            region_context = fused.new_zeros(fused.shape)
         router_logits = self.router(torch.cat([fused, region_context], dim=-1))
-        expert_features, balance_loss, router_probabilities = self.moe(fused, router_logits)
+        if self.use_moe:
+            expert_features, balance_loss, router_probabilities = self.moe(
+                fused, router_logits
+            )
+        else:
+            expert_features = fused
+            balance_loss = fused.new_zeros(())
+            router_probabilities = torch.softmax(router_logits, dim=-1)
         province_logits = self.province_head(expert_features)
         return DialectMoEOutput(
             region_logits=region_logits,

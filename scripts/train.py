@@ -77,6 +77,7 @@ def main() -> None:
         config["data"],
         bundle.region_vocab,
         bundle.province_vocab,
+        use_prosody=bool(config["model"].get("use_prosody", True)),
     )
     train_loader = DataLoader(
         bundle.datasets["train"],

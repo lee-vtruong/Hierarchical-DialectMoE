@@ -13,7 +13,7 @@ from datasets import Audio, DatasetDict, load_dataset
 from transformers import AutoFeatureExtractor
 
 from .labels import LabelVocabulary, normalize_region
-from .prosody import extract_prosody
+from .prosody import PROSODY_FEATURE_NAMES, extract_prosody
 
 
 @dataclass
@@ -78,6 +78,7 @@ class DialectCollator:
         data_config: dict[str, Any],
         region_vocab: LabelVocabulary,
         province_vocab: LabelVocabulary,
+        use_prosody: bool = True,
     ):
         self.extractor = AutoFeatureExtractor.from_pretrained(backbone)
         self.audio_column = data_config["audio_column"]
@@ -87,6 +88,7 @@ class DialectCollator:
         self.max_length = int(float(data_config["max_seconds"]) * self.sample_rate)
         self.region_vocab = region_vocab
         self.province_vocab = province_vocab
+        self.use_prosody = use_prosody
 
     def _decode_audio(self, audio: dict[str, Any]) -> np.ndarray:
         source: io.BytesIO | str
@@ -122,9 +124,14 @@ class DialectCollator:
             return_attention_mask=True,
             return_tensors="pt",
         )
-        prosody = torch.stack(
-            [extract_prosody(torch.from_numpy(array), self.sample_rate) for array in arrays]
-        )
+        if self.use_prosody:
+            prosody = torch.stack(
+                [extract_prosody(torch.from_numpy(array), self.sample_rate) for array in arrays]
+            )
+        else:
+            prosody = torch.zeros(
+                len(arrays), len(PROSODY_FEATURE_NAMES), dtype=torch.float32
+            )
         return {
             "input_values": processed.input_values,
             "attention_mask": processed.attention_mask,

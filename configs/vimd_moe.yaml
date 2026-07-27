@@ -14,6 +14,10 @@ data:
 
 model:
   backbone: facebook/wav2vec2-base
+  use_acoustic: true
+  use_prosody: true
+  use_hierarchical_router: true
+  use_moe: true
   freeze_feature_encoder: true
   freeze_backbone: false
   gradient_checkpointing: true
