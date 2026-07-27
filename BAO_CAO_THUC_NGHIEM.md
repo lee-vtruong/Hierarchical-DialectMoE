@@ -334,3 +334,81 @@ Kết quả tốt nhất hiện tại, sử dụng checkpoint epoch 10:
 thể học tốt phân loại ba vùng và có khả năng phân biệt 63 tỉnh ở mức đáng kể.
 Tuy nhiên, chưa thể tuyên bố MoE tốt hơn baseline hoặc các expert đã chuyên môn
 hóa, do chưa chạy ablation và router đang bị expert collapse.
+
+## 8. Ablation A1 - Acoustic-only baseline
+
+Cấu hình `configs/experiments/acoustic_only.yaml` sử dụng:
+
+- Wav2Vec2 acoustic encoder.
+- Region classification head.
+- Province classification head.
+- Không sử dụng prosody.
+- Không sử dụng hierarchical routing.
+- Không sử dụng Mixture-of-Experts.
+
+Checkpoint có province validation accuracy tốt nhất được đánh giá trên cùng
+test set 2.026 mẫu.
+
+### 8.1 Kết quả acoustic-only
+
+| Metric | Acoustic-only |
+|---|---:|
+| Region accuracy | 0,8929 |
+| Region balanced accuracy | 0,8868 |
+| Region macro-F1 | 0,8882 |
+| Province accuracy | 0,3786 |
+| Province balanced accuracy | 0,3801 |
+| Province macro-F1 | 0,3763 |
+
+Kết quả theo vùng:
+
+| Vùng | Precision | Recall | F1 |
+|---|---:|---:|---:|
+| Central | 0,9245 | 0,7865 | 0,8500 |
+| North | 0,8956 | 0,9642 | 0,9287 |
+| South | 0,8637 | 0,9097 | 0,8861 |
+
+Province code 68 tiếp tục có F1 bằng 0, cho thấy đây không chỉ là lỗi riêng của
+MoE mà là class đặc biệt khó đối với cả acoustic-only baseline.
+
+### 8.2 So sánh acoustic-only với MVP Hierarchical MoE
+
+| Metric | Acoustic-only | MVP MoE epoch 10 | Chênh lệch tuyệt đối |
+|---|---:|---:|---:|
+| Region accuracy | 0,8929 | **0,8954** | +0,0025 |
+| Region balanced accuracy | 0,8868 | **0,8901** | +0,0033 |
+| Region macro-F1 | 0,8882 | **0,8913** | +0,0031 |
+| Province accuracy | 0,3786 | **0,4418** | **+0,0632** |
+| Province balanced accuracy | 0,3801 | **0,4437** | **+0,0636** |
+| Province macro-F1 | 0,3763 | **0,4380** | **+0,0617** |
+
+MVP MoE cải thiện hơn sáu điểm phần trăm ở bài toán cấp tỉnh, trong khi cải
+thiện ở bài toán ba vùng chỉ khoảng 0,25-0,33 điểm phần trăm. Đây là bằng chứng
+ban đầu rằng phần mở rộng sau acoustic encoder đặc biệt hữu ích cho phân loại
+fine-grained.
+
+Tuy nhiên, MVP MoE đồng thời thêm cả:
+
+- Prosody features.
+- Gated fusion.
+- Region-conditioned routing.
+- Mixture-of-Experts.
+- Số lượng tham số bổ sung.
+
+Vì vậy, phép so sánh này **chưa xác định được thành phần nào tạo ra mức tăng
+6,32 điểm phần trăm province accuracy**. Cần tiếp tục chạy
+`acoustic_prosody.yaml`, flat MoE và balanced hierarchical MoE.
+
+### 8.3 Lưu ý về routing metrics của acoustic-only
+
+File đánh giá vẫn chứa router probabilities và entropy 2,0202. Các giá trị này
+không có ý nghĩa đối với acoustic-only vì `use_moe: false`; router được khởi tạo
+trong model để giữ cấu trúc code thống nhất nhưng output của nó không tham gia
+tạo province prediction. Không so sánh routing entropy acoustic-only với MoE.
+
+### 8.4 Kết luận tạm thời
+
+Acoustic-only là baseline mạnh ở mức vùng nhưng yếu hơn rõ rệt ở mức tỉnh.
+Kết quả hiện hỗ trợ việc tiếp tục nghiên cứu prosody/MoE cho fine-grained
+dialect identification, nhưng chưa đủ để xác nhận riêng giả thuyết H1, H2 hay
+H4.
