@@ -2,6 +2,7 @@ data/
 artifacts/
 checkpoints/
 outputs/
+logs/
 wandb/
 .cache/
 .pytest_cache/
