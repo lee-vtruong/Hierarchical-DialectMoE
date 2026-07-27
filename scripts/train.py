@@ -121,6 +121,7 @@ def main() -> None:
     use_amp = device.type == "cuda" and config["training"]["mixed_precision"] == "fp16"
     scaler = torch.amp.GradScaler("cuda", enabled=use_amp)
     start_epoch, best_loss, patience = 0, float("inf"), 0
+    best_region_accuracy, best_province_accuracy = 0.0, 0.0
 
     if args.resume:
         checkpoint = torch.load(args.resume, map_location="cpu", weights_only=False)
@@ -129,6 +130,12 @@ def main() -> None:
         scheduler.load_state_dict(checkpoint["scheduler"])
         start_epoch = checkpoint["epoch"] + 1
         best_loss = checkpoint.get("best_loss", best_loss)
+        best_region_accuracy = checkpoint.get(
+            "best_region_accuracy", best_region_accuracy
+        )
+        best_province_accuracy = checkpoint.get(
+            "best_province_accuracy", best_province_accuracy
+        )
 
     optimizer.zero_grad(set_to_none=True)
     for epoch in range(start_epoch, int(config["training"]["epochs"])):
@@ -167,17 +174,31 @@ def main() -> None:
             "optimizer": optimizer.state_dict(),
             "scheduler": scheduler.state_dict(),
             "best_loss": min(best_loss, metrics["loss"]),
+            "best_region_accuracy": max(
+                best_region_accuracy, metrics["region_accuracy"]
+            ),
+            "best_province_accuracy": max(
+                best_province_accuracy, metrics["province_accuracy"]
+            ),
             "metrics": metrics,
         }
         torch.save(state, output_dir / "last.pt")
         if metrics["loss"] < best_loss:
             best_loss, patience = metrics["loss"], 0
+            torch.save(state, output_dir / "best_loss.pt")
+            # Backward-compatible name used by the evaluation instructions.
             torch.save(state, output_dir / "best.pt")
         else:
             patience += 1
-            if patience >= int(config["training"]["early_stopping_patience"]):
-                print("Early stopping.")
-                break
+        if metrics["region_accuracy"] > best_region_accuracy:
+            best_region_accuracy = metrics["region_accuracy"]
+            torch.save(state, output_dir / "best_region_accuracy.pt")
+        if metrics["province_accuracy"] > best_province_accuracy:
+            best_province_accuracy = metrics["province_accuracy"]
+            torch.save(state, output_dir / "best_province_accuracy.pt")
+        if patience >= int(config["training"]["early_stopping_patience"]):
+            print("Early stopping.")
+            break
 
 
 if __name__ == "__main__":
