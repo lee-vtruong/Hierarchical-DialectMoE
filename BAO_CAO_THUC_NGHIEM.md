@@ -221,3 +221,116 @@ ViMD và đạt:
 chưa phải bằng chứng rằng Hierarchical MoE tốt hơn baseline. Chỉ đưa ra kết
 luận nghiên cứu sau khi chạy test set, các baseline, ablation và nhiều seed.
 
+## 7. Kết quả chính thức trên test set
+
+Test set gồm 2.026 mẫu. Hai checkpoint được đánh giá:
+
+- `best.pt`: epoch 5, được chọn theo validation loss nhỏ nhất.
+- `last.pt`: epoch 10, checkpoint cuối trước early stopping.
+
+### 7.1 So sánh tổng thể
+
+| Checkpoint | Region Acc. | Region Balanced Acc. | Region Macro-F1 | Province Acc. | Province Balanced Acc. | Province Macro-F1 |
+|---|---:|---:|---:|---:|---:|---:|
+| Epoch 5 - best loss | 0,8909 | 0,8855 | 0,8874 | 0,4067 | 0,4109 | 0,3948 |
+| Epoch 10 - last | **0,8954** | **0,8901** | **0,8913** | **0,4418** | **0,4437** | **0,4380** |
+
+Checkpoint epoch 10 tốt hơn epoch 5 trên tất cả metrics tổng thể:
+
+- Region accuracy tăng khoảng 0,44 điểm phần trăm.
+- Region macro-F1 tăng khoảng 0,39 điểm phần trăm.
+- Province accuracy tăng khoảng 3,50 điểm phần trăm.
+- Province balanced accuracy tăng khoảng 3,27 điểm phần trăm.
+- Province macro-F1 tăng khoảng 4,32 điểm phần trăm.
+
+Vì vậy, nếu mục tiêu chính là classification, checkpoint epoch 10 nên được dùng
+thay cho checkpoint được chọn chỉ theo validation loss.
+
+### 7.2 Kết quả theo vùng của checkpoint epoch 10
+
+| Vùng | Precision | Recall | F1 | Support |
+|---|---:|---:|---:|---:|
+| Central | 0,9107 | 0,8026 | 0,8532 | 623 |
+| North | 0,9013 | 0,9566 | **0,9281** | 783 |
+| South | 0,8746 | 0,9113 | 0,8926 | 620 |
+
+North có F1 cao nhất và recall đạt 95,66%. Central có recall thấp nhất,
+80,26%, dù precision đạt 91,07%. Mô hình bỏ sót Central nhiều hơn North và
+South. Support của ba vùng tương đối cân bằng nên balanced accuracy gần
+accuracy.
+
+### 7.3 Kết quả cấp tỉnh của checkpoint epoch 10
+
+Các province code có F1 cao:
+
+| Province code | F1 |
+|---:|---:|
+| 35 | 0,9259 |
+| 37 | 0,8193 |
+| 98 | 0,7761 |
+| 77 | 0,7463 |
+| 15 | 0,7385 |
+
+Các province code có F1 thấp:
+
+| Province code | F1 |
+|---:|---:|
+| 68 | 0,0000 |
+| 62 | 0,1111 |
+| 94 | 0,1224 |
+| 48 | 0,1538 |
+| 24 | 0,1587 |
+
+Province code 68 có precision, recall và F1 bằng 0 trên 32 mẫu test. Cần phân
+tích confusion matrix để xác định các mẫu của code 68 bị dự đoán nhầm thành
+tỉnh nào. Chênh lệch lớn giữa các tỉnh cho thấy accuracy tổng thể chưa đủ để
+mô tả chất lượng hệ thống.
+
+### 7.4 Phân tích routing và expert collapse
+
+Phân bố expert trung bình:
+
+| Checkpoint | Expert 0 | Expert 1 | Expert 2 | Expert 3-7 | Mean entropy |
+|---|---:|---:|---:|---:|---:|
+| Epoch 5 | ~0,000004 | 0,8803 | 0,1197 | mỗi expert ~0,000004 | 0,00339 |
+| Epoch 10 | ~0,000002 | 0,8822 | 0,1178 | mỗi expert ~0,000002 | 0,00279 |
+
+Router gần như chỉ sử dụng hai trong tám expert:
+
+- Expert 1 nhận khoảng 88% xác suất.
+- Expert 2 nhận khoảng 12% xác suất.
+- Sáu expert còn lại gần như không được dùng.
+- Entropy gần 0 cho thấy routing rất tự tin nhưng đã collapse.
+
+Do đó, lần chạy này **chưa chứng minh được expert specialization lành mạnh**.
+MoE hiện hoạt động gần giống mô hình hai expert thay vì tám expert.
+
+Nguyên nhân có khả năng:
+
+1. `router_weight` đang khuyến khích entropy thấp, làm router tự tin quá sớm.
+2. `load_balance_weight = 0.01` quá nhỏ để chống collapse.
+3. Hard top-k assignment làm các expert ít được chọn khó nhận gradient hữu ích.
+4. Chưa có warm-up hoặc noisy routing để phân phối dữ liệu lúc đầu.
+
+Các thí nghiệm tiếp theo cần:
+
+- Đặt `router_weight = 0` trước.
+- Tăng `load_balance_weight`, ví dụ 0,05; 0,1 và 0,2.
+- Thử 2 và 4 expert để so sánh với 8 expert.
+- Theo dõi expert usage ở từng epoch.
+- Thử temperature/noisy routing hoặc router warm-up.
+- Báo cáo province-to-expert và region-to-expert matrix.
+
+### 7.5 Kết luận test set
+
+Kết quả tốt nhất hiện tại, sử dụng checkpoint epoch 10:
+
+- Region accuracy: **89,54%**.
+- Region macro-F1: **89,13%**.
+- Province accuracy: **44,18%**.
+- Province macro-F1: **43,80%**.
+
+Đây là kết quả test set thực tế của hệ thống MVP. Kết quả chứng minh pipeline có
+thể học tốt phân loại ba vùng và có khả năng phân biệt 63 tỉnh ở mức đáng kể.
+Tuy nhiên, chưa thể tuyên bố MoE tốt hơn baseline hoặc các expert đã chuyên môn
+hóa, do chưa chạy ablation và router đang bị expert collapse.
