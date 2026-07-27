@@ -26,6 +26,17 @@ def test_sparse_moe_shape_and_gradient():
     assert router_logits.grad is not None
 
 
+def test_sparse_moe_mixed_precision_dtype():
+    moe = SparseMixtureOfExperts(8, 16, num_experts=4, top_k=2, dropout=0.0).half()
+    features = torch.randn(3, 8, dtype=torch.float16)
+    # Simulate a numerically stable router softmax producing FP32 weights while
+    # expert activations remain FP16 under AMP.
+    router_logits = torch.randn(3, 4, dtype=torch.float32)
+    output, _, _ = moe(features, router_logits)
+    assert output.dtype == torch.float16
+    assert output.shape == features.shape
+
+
 def test_hierarchical_loss_is_finite():
     output = DialectMoEOutput(
         region_logits=torch.randn(4, 3),
@@ -53,4 +64,3 @@ def test_hierarchical_loss_is_finite():
         "router_entropy",
         "load_balance_loss",
     }
-

@@ -62,8 +62,14 @@ class SparseMixtureOfExperts(nn.Module):
             if batch_indices.numel() == 0:
                 continue
             expert_output = expert(features[batch_indices])
-            weights = top_weights[batch_indices, slot_indices, None]
-            output.index_add_(0, batch_indices, expert_output * weights)
+            weights = top_weights[batch_indices, slot_indices, None].to(
+                dtype=expert_output.dtype
+            )
+            output.index_add_(
+                0,
+                batch_indices,
+                (expert_output * weights).to(dtype=output.dtype),
+            )
 
         router_probabilities = torch.softmax(router_logits, dim=-1)
         importance = router_probabilities.mean(dim=0)
