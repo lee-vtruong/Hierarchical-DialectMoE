@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import io
 from pathlib import Path
 from typing import Any
 
+import librosa
 import numpy as np
+import soundfile as sf
 import torch
 from datasets import Audio, DatasetDict, load_dataset
 from transformers import AutoFeatureExtractor
@@ -40,7 +43,12 @@ def load_vimd(config: dict[str, Any], max_samples: int | None = None) -> Dataset
             cache_dir=data_config.get("cache_dir"),
         )
     audio_column = data_config["audio_column"]
-    datasets = datasets.cast_column(audio_column, Audio(sampling_rate=data_config["sample_rate"]))
+    # Keep encoded bytes instead of asking datasets to decode with TorchCodec.
+    # This avoids a hard Torch/TorchCodec/CUDA/FFmpeg compatibility dependency.
+    datasets = datasets.cast_column(
+        audio_column,
+        Audio(sampling_rate=data_config["sample_rate"], decode=False),
+    )
 
     if max_samples:
         datasets = DatasetDict(
@@ -80,9 +88,29 @@ class DialectCollator:
         self.region_vocab = region_vocab
         self.province_vocab = province_vocab
 
+    def _decode_audio(self, audio: dict[str, Any]) -> np.ndarray:
+        source: io.BytesIO | str
+        if audio.get("bytes") is not None:
+            source = io.BytesIO(audio["bytes"])
+        elif audio.get("path"):
+            source = audio["path"]
+        else:
+            raise ValueError("Audio sample contains neither embedded bytes nor a path")
+        waveform, original_rate = sf.read(source, dtype="float32", always_2d=False)
+        waveform = np.asarray(waveform, dtype=np.float32)
+        if waveform.ndim == 2:
+            waveform = waveform.mean(axis=1)
+        if int(original_rate) != self.sample_rate:
+            waveform = librosa.resample(
+                waveform,
+                orig_sr=int(original_rate),
+                target_sr=self.sample_rate,
+            )
+        return np.asarray(waveform, dtype=np.float32)
+
     def __call__(self, examples: list[dict[str, Any]]) -> dict[str, torch.Tensor]:
         arrays = [
-            np.asarray(example[self.audio_column]["array"], dtype=np.float32)[: self.max_length]
+            self._decode_audio(example[self.audio_column])[: self.max_length]
             for example in examples
         ]
         processed = self.extractor(

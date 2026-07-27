@@ -1,6 +1,6 @@
 torch>=2.3
 transformers>=4.42
-datasets[audio]>=2.20
+datasets>=2.20
 huggingface_hub>=0.23
 accelerate>=0.31
 librosa>=0.10.2
