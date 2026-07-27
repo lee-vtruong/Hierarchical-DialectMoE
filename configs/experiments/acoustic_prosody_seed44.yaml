@@ -1,0 +1,7 @@
+extends: acoustic_prosody.yaml
+
+seed: 44
+
+training:
+  output_dir: outputs/acoustic_prosody_seed44
+

@@ -1,0 +1,7 @@
+extends: moe_2_balanced.yaml
+
+seed: 43
+
+training:
+  output_dir: outputs/moe_2_balanced_seed43
+
