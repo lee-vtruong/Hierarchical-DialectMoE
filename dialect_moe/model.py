@@ -86,7 +86,12 @@ class DialectMoEOutput:
 class HierarchicalDialectMoE(nn.Module):
     def __init__(self, model_config: dict, num_regions: int, num_provinces: int):
         super().__init__()
-        self.backbone = AutoModel.from_pretrained(model_config["backbone"])
+        # Force the non-pickle checkpoint format. Recent Transformers versions
+        # reject torch.load on PyTorch < 2.6 because of CVE-2025-32434.
+        self.backbone = AutoModel.from_pretrained(
+            model_config["backbone"],
+            use_safetensors=True,
+        )
         backbone_dim = int(self.backbone.config.hidden_size)
 
         if model_config.get("gradient_checkpointing", False):
@@ -170,4 +175,3 @@ class HierarchicalDialectMoE(nn.Module):
             router_probabilities=router_probabilities,
             load_balance_loss=balance_loss,
         )
-

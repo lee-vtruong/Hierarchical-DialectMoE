@@ -172,7 +172,12 @@ class FullProposalDialectMoE(nn.Module):
         dropout = float(model_config["dropout"])
         self.tasks = model_config["tasks"]
         self.router_config = model_config["router"]
-        self.backbone = AutoModel.from_pretrained(model_config["backbone"])
+        # Force the non-pickle checkpoint format. Recent Transformers versions
+        # reject torch.load on PyTorch < 2.6 because of CVE-2025-32434.
+        self.backbone = AutoModel.from_pretrained(
+            model_config["backbone"],
+            use_safetensors=True,
+        )
         backbone_dim = int(self.backbone.config.hidden_size)
         if model_config.get("gradient_checkpointing"):
             self.backbone.gradient_checkpointing_enable()
@@ -305,4 +310,3 @@ class FullProposalDialectMoE(nn.Module):
             load_balance_loss=balance_loss,
             fused_features=fused,
         )
-
