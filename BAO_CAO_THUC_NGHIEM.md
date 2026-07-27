@@ -498,3 +498,117 @@ H1 được hỗ trợ trong lần chạy seed 42:
 Tuy nhiên, để dùng ngôn ngữ “cải thiện có ý nghĩa thống kê”, cần chạy ít nhất
 ba seed và bootstrap/paired test trên prediction-level outputs. Metrics tổng
 hợp của một seed chưa đủ cho kiểm định thống kê.
+
+## 10. Ablation MoE và hierarchical routing - seed 42
+
+Các thí nghiệm MoE được chạy với `router_weight = 0` và
+`load_balance_weight = 0.1` để khắc phục expert collapse của lần chạy đầu.
+
+### 10.1 Bảng kết quả tổng hợp
+
+| Mô hình | Region Acc. | Region Macro-F1 | Province Acc. | Province Balanced Acc. | Province Macro-F1 |
+|---|---:|---:|---:|---:|---:|
+| Acoustic-only | 0,8929 | 0,8882 | 0,3786 | 0,3801 | 0,3763 |
+| Acoustic + prosody | 0,9003 | 0,8966 | 0,4329 | 0,4365 | 0,4268 |
+| Flat MoE-8 balanced | 0,8929 | 0,8888 | 0,4373 | 0,4392 | 0,4332 |
+| Hierarchical MoE-4 balanced | 0,8973 | 0,8926 | 0,4348 | 0,4376 | 0,4350 |
+| Hierarchical MoE-8 balanced | 0,9003 | 0,8968 | 0,4472 | 0,4483 | 0,4400 |
+| **Hierarchical MoE-2 balanced** | **0,9008** | **0,8974** | **0,4526** | **0,4552** | **0,4486** |
+| MVP MoE-8 collapse, epoch 10 | 0,8954 | 0,8913 | 0,4418 | 0,4437 | 0,4380 |
+
+Hierarchical MoE-2 là cấu hình tốt nhất theo region accuracy, region macro-F1
+và toàn bộ metrics cấp tỉnh. Hierarchical MoE-8 có region balanced accuracy
+cao nhất, 0,8962, nhưng thấp hơn MoE-2 ở các metrics chính còn lại.
+
+### 10.2 Mức cải thiện của cấu hình tốt nhất
+
+So với acoustic-only, Hierarchical MoE-2 cải thiện:
+
+- Region accuracy: +0,79 điểm phần trăm.
+- Region macro-F1: +0,92 điểm phần trăm.
+- Province accuracy: **+7,40 điểm phần trăm**.
+- Province balanced accuracy: **+7,51 điểm phần trăm**.
+- Province macro-F1: **+7,23 điểm phần trăm**.
+
+So với acoustic + prosody không MoE:
+
+- Region accuracy: +0,05 điểm phần trăm.
+- Region macro-F1: +0,09 điểm phần trăm.
+- Province accuracy: **+1,97 điểm phần trăm**.
+- Province balanced accuracy: **+1,87 điểm phần trăm**.
+- Province macro-F1: **+1,83 điểm phần trăm**.
+
+So với MVP MoE-8 bị collapse:
+
+- Region accuracy: +0,54 điểm phần trăm.
+- Province accuracy: +1,09 điểm phần trăm.
+- Province macro-F1: +1,06 điểm phần trăm.
+
+### 10.3 Đóng góp của hierarchical routing
+
+So sánh cùng tám expert và top-k=2:
+
+| Metric | Flat MoE-8 | Hierarchical MoE-8 | Cải thiện |
+|---|---:|---:|---:|
+| Region accuracy | 0,8929 | **0,9003** | +0,0074 |
+| Region balanced accuracy | 0,8853 | **0,8962** | +0,0108 |
+| Region macro-F1 | 0,8888 | **0,8968** | +0,0080 |
+| Province accuracy | 0,4373 | **0,4472** | +0,0099 |
+| Province balanced accuracy | 0,4392 | **0,4483** | +0,0091 |
+| Province macro-F1 | 0,4332 | **0,4400** | +0,0068 |
+
+Trong seed 42, region-conditioned hierarchical routing tốt hơn flat routing
+trên toàn bộ metrics. Kết quả này hỗ trợ ban đầu cho giả thuyết H4.
+
+### 10.4 Số lượng expert
+
+Kết quả không tăng đơn điệu theo số expert:
+
+| Số expert | Top-k | Province Acc. | Province Macro-F1 |
+|---:|---:|---:|---:|
+| 2 | 1 | **0,4526** | **0,4486** |
+| 4 | 2 | 0,4348 | 0,4350 |
+| 8 | 2 | 0,4472 | 0,4400 |
+
+Hai expert cho kết quả tốt nhất. Có thể tám expert là quá nhiều so với khoảng
+15.000 mẫu train, làm mỗi expert nhận ít tín hiệu hơn. Tuy nhiên, phép so sánh
+đồng thời thay đổi cả `num_experts` và tỷ lệ `top_k/num_experts`; cần chạy thêm
+MoE-4 top-1 và MoE-8 top-1 để tách hai yếu tố.
+
+### 10.5 Routing sau khi chống collapse
+
+| Mô hình | Phân bố xác suất expert | Entropy | Entropy cực đại |
+|---|---|---:|---:|
+| Flat MoE-8 | xấp xỉ 12,5% mỗi expert | 2,0788 | ln(8)=2,0794 |
+| Hierarchical MoE-2 | xấp xỉ 50% mỗi expert | 0,6931 | ln(2)=0,6931 |
+| Hierarchical MoE-4 | xấp xỉ 25% mỗi expert | 1,3829 | ln(4)=1,3863 |
+| Hierarchical MoE-8 | xấp xỉ 12,5% mỗi expert | 2,0793 | ln(8)=2,0794 |
+
+Load balancing 0,1 đã loại bỏ collapse hoàn toàn. Tuy nhiên, entropy gần cực
+đại cho thấy router hiện gần như đồng đều trên từng mẫu, tức là chuyển từ một
+cực đoan sang cực đoan khác:
+
+- Lần đầu: routing quá tự tin và collapse.
+- Balanced run: routing gần uniform và chưa thể hiện specialization rõ.
+
+Do đó, kết quả balanced MoE tốt hơn nhưng vẫn chưa chứng minh expert
+specialization. Cần đo top-1 assignment counts, region-to-expert matrix và
+province-to-expert matrix. Cũng cần thử `load_balance_weight` trung gian như
+0,02 và 0,05.
+
+### 10.6 Kết luận ablation seed 42
+
+Các kết quả hiện hỗ trợ:
+
+- H1: prosody cải thiện đáng kể phân loại cấp tỉnh.
+- H4: hierarchical routing tốt hơn flat routing với MoE-8 trong seed 42.
+- MoE có thể tạo thêm khoảng 1,8-2,0 điểm phần trăm so với acoustic + prosody.
+
+Chưa đủ bằng chứng cho:
+
+- H2: expert tự động học được các nhóm phương ngữ chuyên biệt.
+- H3: prosody-aware routing tốt hơn acoustic-only routing.
+- Ý nghĩa thống kê và khả năng lặp lại qua seed.
+
+Cấu hình ứng viên chính để chạy seed 43 và 44 là Hierarchical MoE-2 balanced.
+Cấu hình đối chứng cần chạy nhiều seed là acoustic + prosody không MoE.
