@@ -612,3 +612,91 @@ Chưa đủ bằng chứng cho:
 
 Cấu hình ứng viên chính để chạy seed 43 và 44 là Hierarchical MoE-2 balanced.
 Cấu hình đối chứng cần chạy nhiều seed là acoustic + prosody không MoE.
+
+## 11. Kết quả đa seed - Acoustic + prosody và MoE-2
+
+Hai cấu hình được chạy với seed 42, 43 và 44:
+
+- Acoustic + prosody, không MoE.
+- Hierarchical MoE-2 balanced, top-k=1.
+
+Các con số dưới đây là mean ± sample standard deviation.
+
+### 11.1 Bảng tổng hợp ba seed
+
+| Metric | Acoustic + prosody | Hierarchical MoE-2 |
+|---|---:|---:|
+| Region accuracy | **0,9011 ± 0,0028** | 0,8927 ± 0,0073 |
+| Region balanced accuracy | **0,8961 ± 0,0038** | 0,8879 ± 0,0068 |
+| Region macro-F1 | **0,8974 ± 0,0034** | 0,8894 ± 0,0074 |
+| Province accuracy | **0,4426 ± 0,0087** | 0,4408 ± 0,0172 |
+| Province balanced accuracy | **0,4466 ± 0,0091** | 0,4442 ± 0,0175 |
+| Province macro-F1 | **0,4365 ± 0,0084** | 0,4365 ± 0,0175 |
+
+Trung bình ba seed, MoE-2 không cải thiện acoustic + prosody:
+
+- Region accuracy giảm khoảng 0,84 điểm phần trăm.
+- Region macro-F1 giảm khoảng 0,80 điểm phần trăm.
+- Province accuracy giảm khoảng 0,18 điểm phần trăm.
+- Province balanced accuracy giảm khoảng 0,24 điểm phần trăm.
+- Province macro-F1 gần như bằng nhau, chênh dưới 0,01 điểm phần trăm.
+
+### 11.2 Kết quả từng seed
+
+| Seed | Acoustic+Prosody Province Acc. | MoE-2 Province Acc. | MoE - đối chứng |
+|---:|---:|---:|---:|
+| 42 | 0,4329 | **0,4526** | +0,0197 |
+| 43 | 0,4452 | **0,4487** | +0,0035 |
+| 44 | **0,4497** | 0,4210 | -0,0286 |
+
+MoE-2 tốt hơn ở seed 42 và 43 nhưng giảm mạnh ở seed 44. Mức giảm seed 44 lớn
+hơn tổng lợi ích ở hai seed còn lại, khiến mean thấp hơn đối chứng.
+
+### 11.3 Độ ổn định
+
+Standard deviation của MoE-2 lớn hơn rõ rệt:
+
+- Province accuracy: 0,0172 so với 0,0087, gần gấp 2 lần.
+- Province balanced accuracy: 0,0175 so với 0,0091.
+- Province macro-F1: 0,0175 so với 0,0084, hơn gấp 2 lần.
+
+MoE-2 hiện kém ổn định theo initialization seed. Kết quả tốt nhất seed 42
+không đại diện cho hành vi trung bình.
+
+### 11.4 Liên hệ với routing
+
+Router entropy của MoE-2 ở cả ba seed gần như bằng `ln(2)`:
+
+```text
+seed 42: 0,6931446
+seed 43: 0,6931431
+seed 44: 0,6931350
+```
+
+Xác suất expert trung bình cũng gần 50/50. Router gần uniform trên từng mẫu,
+chưa học được quyết định chuyên biệt rõ ràng. Với top-k=1, lựa chọn expert có
+thể nhạy với các sai khác logit rất nhỏ, góp phần làm tăng variance giữa seed.
+
+### 11.5 Điều chỉnh kết luận
+
+Kết luận dựa riêng seed 42 rằng “MoE-2 tốt hơn acoustic + prosody” không còn
+đứng vững khi xét ba seed.
+
+Kết quả đa seed hiện tại:
+
+- Prosody-only extension là lựa chọn ổn định hơn.
+- MoE-2 chưa tạo cải thiện trung bình.
+- H2 chưa được hỗ trợ.
+- H4 mới chỉ có bằng chứng single-seed từ so sánh flat MoE-8 và hierarchical
+  MoE-8; chưa có xác nhận đa seed.
+- Chưa nên chọn MoE-2 làm mô hình cuối chỉ dựa trên checkpoint seed 42.
+
+### 11.6 Thí nghiệm cần chạy tiếp
+
+1. Chạy acoustic-only seed 43 và 44 để đánh giá H1 qua ba seed công bằng.
+2. Bổ sung top-1 assignment counts thay vì chỉ mean probabilities.
+3. Thử load balancing trung gian 0,02 và 0,05.
+4. Thử MoE-2 với router warm-up hoặc temperature schedule.
+5. Chạy flat/hierarchical MoE-8 thêm seed nếu tiếp tục đánh giá H4.
+6. Lưu prediction-level outputs để bootstrap confidence interval và paired
+   significance test.

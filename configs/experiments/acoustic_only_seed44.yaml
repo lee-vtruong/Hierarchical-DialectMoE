@@ -1,0 +1,7 @@
+extends: acoustic_only.yaml
+
+seed: 44
+
+training:
+  output_dir: outputs/acoustic_only_seed44
+
