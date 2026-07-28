@@ -700,3 +700,75 @@ Kết quả đa seed hiện tại:
 5. Chạy flat/hierarchical MoE-8 thêm seed nếu tiếp tục đánh giá H4.
 6. Lưu prediction-level outputs để bootstrap confidence interval và paired
    significance test.
+
+## 12. Kết quả đa seed - Đánh giá giả thuyết H1
+
+Acoustic-only và acoustic + prosody đều được chạy với seed 42, 43 và 44 trên
+cùng train/validation/test split.
+
+### 12.1 Mean ± standard deviation
+
+| Metric | Acoustic-only | Acoustic + prosody | Chênh lệch mean |
+|---|---:|---:|---:|
+| Region accuracy | 0,8947 ± 0,0020 | **0,9011 ± 0,0028** | +0,0064 |
+| Region balanced accuracy | 0,8894 ± 0,0024 | **0,8961 ± 0,0038** | +0,0067 |
+| Region macro-F1 | 0,8907 ± 0,0023 | **0,8974 ± 0,0034** | +0,0067 |
+| Province accuracy | 0,3944 ± 0,0147 | **0,4426 ± 0,0087** | **+0,0482** |
+| Province balanced accuracy | 0,3973 ± 0,0163 | **0,4466 ± 0,0091** | **+0,0493** |
+| Province macro-F1 | 0,3906 ± 0,0129 | **0,4365 ± 0,0084** | **+0,0459** |
+
+Prosody cải thiện trung bình:
+
+- Region accuracy: +0,64 điểm phần trăm.
+- Region macro-F1: +0,67 điểm phần trăm.
+- Province accuracy: **+4,82 điểm phần trăm**.
+- Province balanced accuracy: **+4,93 điểm phần trăm**.
+- Province macro-F1: **+4,59 điểm phần trăm**.
+
+### 12.2 So sánh theo từng seed
+
+| Seed | Acoustic-only Province Acc. | Acoustic+Prosody Province Acc. | Cải thiện |
+|---:|---:|---:|---:|
+| 42 | 0,3786 | **0,4329** | +0,0543 |
+| 43 | 0,4077 | **0,4452** | +0,0375 |
+| 44 | 0,3968 | **0,4497** | +0,0528 |
+
+| Seed | Acoustic-only Province Macro-F1 | Acoustic+Prosody Province Macro-F1 | Cải thiện |
+|---:|---:|---:|---:|
+| 42 | 0,3763 | **0,4268** | +0,0505 |
+| 43 | 0,4015 | **0,4410** | +0,0395 |
+| 44 | 0,3940 | **0,4418** | +0,0478 |
+
+Prosody tốt hơn acoustic-only ở cả ba seed, không phụ thuộc vào một
+initialization thuận lợi.
+
+### 12.3 Độ ổn định
+
+Ở bài toán cấp tỉnh, acoustic + prosody có standard deviation thấp hơn:
+
+- Province accuracy std giảm từ 0,0147 xuống 0,0087.
+- Province balanced accuracy std giảm từ 0,0163 xuống 0,0091.
+- Province macro-F1 std giảm từ 0,0129 xuống 0,0084.
+
+Prosody không chỉ cải thiện mean mà còn làm kết quả cấp tỉnh ổn định hơn giữa
+các seed trong thí nghiệm hiện tại.
+
+### 12.4 Kết luận về H1
+
+Kết quả ba seed cung cấp bằng chứng lặp lại hỗ trợ H1:
+
+> Đặc trưng prosody cải thiện khả năng nhận diện phương ngữ tiếng Việt, đặc
+> biệt ở mức 63 tỉnh.
+
+Mức tăng province accuracy trung bình 4,82 điểm phần trăm và xuất hiện ở cả ba
+seed. Đây là bằng chứng thực nghiệm mạnh hơn kết quả single-seed.
+
+Tuy nhiên, chưa sử dụng cụm từ “có ý nghĩa thống kê” trong kết luận cuối vì:
+
+- Mới có ba seed.
+- Chưa lưu prediction-level outputs cho paired bootstrap hoặc McNemar test.
+- Test set được dùng để so sánh nhiều cấu hình; cần hạn chế tiếp tục tối ưu trực
+  tiếp trên test set.
+
+Các thí nghiệm tiếp theo nên chọn hyperparameter dựa trên validation set, sau
+đó chỉ đánh giá test một lần cho cấu hình đã chốt.
