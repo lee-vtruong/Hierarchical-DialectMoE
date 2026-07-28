@@ -835,3 +835,154 @@ Bằng chứng cấp tỉnh nhất quán trên:
 
 Đây là đóng góp thực nghiệm mạnh nhất của hệ thống hiện tại. Khi viết bài, cần
 nêu rõ đơn vị bootstrap là speaker và test set có 2.026 utterance/1.344 speaker.
+
+## 14. Thí nghiệm H3 - Nguồn đặc trưng đầu vào cho router
+
+H3 đánh giá liệu router có lợi hơn khi sử dụng thông tin prosody thay vì chỉ dùng
+đặc trưng acoustic. Ba biến thể được giữ giống nhau về backbone, biểu diễn dùng cho
+classification, hierarchical MoE, 4 expert, `top_k = 1`, hệ số load balancing và
+quy trình huấn luyện; chỉ đầu vào của router thay đổi:
+
+- `acoustic`: router chỉ nhận acoustic representation.
+- `prosody`: router chỉ nhận prosody representation.
+- `acoustic_prosody`: router nhận kết hợp acoustic và prosody.
+
+Mỗi biến thể được chạy với seed 42, 43 và 44. Kết quả được chọn theo checkpoint
+`best_province_accuracy` và đánh giá trên cùng 2.026 utterance thuộc 1.344 speaker.
+
+### 14.1 Mean ± standard deviation trên ba seed
+
+| Router input | Region accuracy | Region macro-F1 | Province accuracy | Province balanced accuracy | Province macro-F1 |
+|---|---:|---:|---:|---:|---:|
+| Acoustic | 0,9003 ± 0,0053 | 0,8968 ± 0,0058 | 0,4432 ± 0,0099 | 0,4460 ± 0,0099 | 0,4420 ± 0,0131 |
+| Prosody | **0,9064 ± 0,0043** | **0,9032 ± 0,0047** | **0,4495 ± 0,0153** | **0,4513 ± 0,0156** | **0,4456 ± 0,0167** |
+| Acoustic + prosody | 0,9056 ± 0,0033 | 0,9025 ± 0,0029 | 0,4467 ± 0,0044 | 0,4494 ± 0,0044 | 0,4439 ± 0,0043 |
+
+So với acoustic routing, prosody routing tăng trung bình:
+
+- Region accuracy: `+0,0061`, tương đương khoảng `+0,61` điểm phần trăm.
+- Province accuracy: `+0,0063`, tương đương khoảng `+0,63` điểm phần trăm.
+- Province macro-F1: `+0,0036`, tương đương khoảng `+0,36` điểm phần trăm.
+
+Router kết hợp acoustic + prosody tăng trung bình:
+
+- Region accuracy: `+0,0053`, tương đương khoảng `+0,53` điểm phần trăm.
+- Province accuracy: `+0,0035`, tương đương khoảng `+0,35` điểm phần trăm.
+- Province macro-F1: `+0,0019`, tương đương khoảng `+0,19` điểm phần trăm.
+
+Mặc dù prosody routing có mean cao nhất, độ lệch chuẩn của các metric cấp tỉnh
+cũng cao nhất. Router kết hợp acoustic + prosody ổn định nhất trên ba seed nhưng
+mức tăng trung bình nhỏ.
+
+### 14.2 Prosody routing so với acoustic routing theo từng seed
+
+#### Region accuracy
+
+| Seed | Chênh lệch | Speaker-bootstrap CI 95% | P(prosody tốt hơn) | McNemar exact p |
+|---:|---:|---:|---:|---:|
+| 42 | +0,0143 | [0,0044; 0,0246] | 0,9969 | 0,0051 |
+| 43 | +0,0030 | [-0,0070; 0,0129] | 0,7005 | 0,6137 |
+| 44 | +0,0010 | [-0,0098; 0,0118] | 0,5540 | 0,9273 |
+
+Prosody routing cải thiện region accuracy có ý nghĩa ở seed 42, nhưng không lặp
+lại ở seed 43 và 44.
+
+#### Province accuracy
+
+| Seed | Chênh lệch | Speaker-bootstrap CI 95% | P(prosody tốt hơn) | McNemar exact p |
+|---:|---:|---:|---:|---:|
+| 42 | -0,0099 | [-0,0307; 0,0115] | 0,1696 | 0,3433 |
+| 43 | -0,0064 | [-0,0267; 0,0138] | 0,2631 | 0,5311 |
+| 44 | +0,0350 | [0,0154; 0,0549] | 0,9998 | 0,00019 |
+
+Ở cấp tỉnh, prosody routing kém hơn acoustic routing tại seed 42 và 43 nhưng tốt
+hơn rõ rệt tại seed 44. Chỉ seed 44 có CI 95% không chứa 0 và McNemar p-value nhỏ
+hơn 0,05. Hiệu ứng đổi dấu giữa các seed, do đó mean cao hơn không đủ để kết luận
+prosody routing tạo cải thiện ổn định.
+
+### 14.3 Router acoustic + prosody so với acoustic routing
+
+#### Region accuracy
+
+| Seed | Chênh lệch | Speaker-bootstrap CI 95% | P(kết hợp tốt hơn) | McNemar exact p |
+|---:|---:|---:|---:|---:|
+| 42 | +0,0133 | [0,0030; 0,0238] | 0,9929 | 0,0150 |
+| 43 | +0,0039 | [-0,0070; 0,0148] | 0,7420 | 0,5159 |
+| 44 | -0,0015 | [-0,0131; 0,0098] | 0,3715 | 0,8570 |
+
+Chỉ seed 42 cho cải thiện region accuracy có ý nghĩa; seed 43 và 44 không xác
+nhận hiệu ứng này.
+
+#### Province accuracy
+
+| Seed | Chênh lệch | Speaker-bootstrap CI 95% | P(kết hợp tốt hơn) | McNemar exact p |
+|---:|---:|---:|---:|---:|
+| 42 | +0,0030 | [-0,0172; 0,0235] | 0,5986 | 0,8007 |
+| 43 | -0,0074 | [-0,0284; 0,0135] | 0,2357 | 0,4756 |
+| 44 | +0,0148 | [-0,0059; 0,0352] | 0,9179 | 0,1419 |
+
+Cả ba CI 95% đều chứa 0 và cả ba McNemar p-value đều lớn hơn 0,05. Vì vậy chưa
+có bằng chứng thống kê rằng router kết hợp cải thiện province accuracy so với
+acoustic routing.
+
+### 14.4 Phân tích routing
+
+Entropy trung bình của cả ba biến thể đều xấp xỉ:
+
+```text
+ln(4) = 1,386294
+```
+
+Giá trị quan sát:
+
+| Router input | Mean entropy |
+|---|---:|
+| Acoustic | 1,386281 |
+| Prosody | 1,386281 |
+| Acoustic + prosody | 1,386288 |
+
+Mean expert probability của tất cả cấu hình đều gần:
+
+```text
+[0,25; 0,25; 0,25; 0,25]
+```
+
+Load-balancing đã ngăn expert collapse, nhưng router hiện gần phân phối đều tối
+đa. Điều này chưa chứng minh router học được chuyên môn hóa theo vùng, tỉnh hoặc
+đặc trưng prosody. Sự khác biệt accuracy giữa các cấu hình có thể đến từ biến
+thiên tối ưu hóa hoặc projection của router, thay vì một chính sách expert
+selection có ý nghĩa.
+
+### 14.5 Kết luận về H3
+
+Kết quả hiện tại **không hỗ trợ H3 một cách ổn định**:
+
+> Thay đầu vào router từ acoustic sang prosody hoặc acoustic + prosody chưa tạo
+> cải thiện cấp tỉnh nhất quán qua ba seed.
+
+Prosody routing đạt mean cao nhất, nhưng:
+
+- Province accuracy giảm ở seed 42 và 43, chỉ tăng có ý nghĩa ở seed 44.
+- Router kết hợp không đạt ý nghĩa thống kê ở province accuracy trong bất kỳ seed
+  nào.
+- Các router đều gần uniform và chưa thể hiện chuyên môn hóa expert.
+
+Do đó không nên tuyên bố prosody-aware routing là đóng góp đã được xác nhận. Kết
+quả mạnh hơn vẫn là H1: prosody có ích khi được thêm vào biểu diễn phục vụ
+classification. Hướng tiếp theo nên ưu tiên đo chuyên môn hóa expert theo
+region/province, điều chỉnh load-balancing để tránh uniform routing, và chọn
+hyperparameter trên validation set trước một lần đánh giá test cuối.
+
+### 14.6 Sự cố vận hành khi chạy H3
+
+Chín thí nghiệm H3 đã hoàn thành đầy đủ. Trong lần chạy song song ban đầu, ba job
+bị CUDA out-of-memory vì GPU được chọn bị tiến trình khác chiếm gần hết VRAM:
+
+- `h3_router_prosody_seed43`
+- `h3_router_prosody_seed44`
+- `h3_router_acoustic_prosody_seed44`
+
+Ba job được chạy lại thành công trên các GPU vật lý 7, 2 và 5, mỗi GPU một job,
+với `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True`. Kết quả cuối có đủ 9 file
+`metrics_test_best_province_accuracy.json`; các lần lỗi cũ chỉ được giữ trong log
+để truy vết và không được dùng trong bảng tổng hợp.
