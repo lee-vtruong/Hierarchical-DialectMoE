@@ -763,12 +763,75 @@ Kết quả ba seed cung cấp bằng chứng lặp lại hỗ trợ H1:
 Mức tăng province accuracy trung bình 4,82 điểm phần trăm và xuất hiện ở cả ba
 seed. Đây là bằng chứng thực nghiệm mạnh hơn kết quả single-seed.
 
-Tuy nhiên, chưa sử dụng cụm từ “có ý nghĩa thống kê” trong kết luận cuối vì:
+Prediction-level paired tests được trình bày trong mục tiếp theo. Test set đã
+được dùng để so sánh nhiều cấu hình, vì vậy các hyperparameter mới phải được
+chọn trên validation set và chỉ đánh giá test một lần sau khi chốt.
 
-- Mới có ba seed.
-- Chưa lưu prediction-level outputs cho paired bootstrap hoặc McNemar test.
-- Test set được dùng để so sánh nhiều cấu hình; cần hạn chế tiếp tục tối ưu trực
-  tiếp trên test set.
+## 13. Kiểm định paired cho H1
 
-Các thí nghiệm tiếp theo nên chọn hyperparameter dựa trên validation set, sau
-đó chỉ đánh giá test một lần cho cấu hình đã chốt.
+Prediction-level outputs của acoustic-only và acoustic + prosody được ghép cặp
+trên cùng 2.026 utterance thuộc 1.344 speaker.
+
+Hai kiểm định được sử dụng:
+
+- Speaker-level paired bootstrap, 10.000 lần lặp.
+- Exact McNemar test trên correctness của từng utterance.
+
+Bootstrap resample theo speaker và giữ toàn bộ utterance của speaker cùng nhau,
+giảm giả định sai rằng các utterance cùng người nói là độc lập.
+
+### 13.1 Province accuracy
+
+| Seed | Accuracy tăng | Speaker-bootstrap CI 95% | P(candidate tốt hơn) | McNemar exact p |
+|---:|---:|---:|---:|---:|
+| 42 | +0,0543 | [0,0305; 0,0783] | 1,0000 | 6,52 × 10⁻⁷ |
+| 43 | +0,0375 | [0,0149; 0,0599] | 0,9996 | 3,39 × 10⁻⁴ |
+| 44 | +0,0528 | [0,0293; 0,0758] | 1,0000 | 8,41 × 10⁻⁷ |
+
+CI 95% không chứa 0 ở cả ba seed. McNemar p-value đều nhỏ hơn 0,001. Kết quả
+vẫn đạt ngưỡng nếu áp dụng Bonferroni cho ba seed (`alpha = 0,05/3 ≈ 0,0167`).
+
+### 13.2 Province macro-F1
+
+| Seed | Macro-F1 tăng | Speaker-bootstrap CI 95% |
+|---:|---:|---:|
+| 42 | +0,0505 | [0,0276; 0,0727] |
+| 43 | +0,0395 | [0,0173; 0,0613] |
+| 44 | +0,0478 | [0,0250; 0,0693] |
+
+CI 95% của macro-F1 cũng không chứa 0 ở cả ba seed.
+
+### 13.3 Region accuracy
+
+| Seed | Accuracy tăng | Speaker-bootstrap CI 95% | P(candidate tốt hơn) | McNemar exact p |
+|---:|---:|---:|---:|---:|
+| 42 | +0,0074 | [-0,0053; 0,0201] | 0,8665 | 0,2246 |
+| 43 | +0,0044 | [-0,0085; 0,0176] | 0,7370 | 0,5066 |
+| 44 | +0,0074 | [-0,0035; 0,0182] | 0,8986 | 0,2066 |
+
+Ở mức vùng:
+
+- Cả ba CI đều chứa 0.
+- Cả ba McNemar p-value đều lớn hơn 0,05.
+- Chưa có bằng chứng cho cải thiện region accuracy có ý nghĩa thống kê.
+
+Điều này hợp lý vì acoustic-only đã đạt khoảng 89-90% ở bài toán ba vùng, nên
+prosody tạo mức tăng nhỏ.
+
+### 13.4 Kết luận thống kê cho H1
+
+Kết quả hỗ trợ kết luận:
+
+> Prosody tạo cải thiện có ý nghĩa thống kê cho nhận diện phương ngữ cấp tỉnh,
+> nhưng chưa chứng minh được cải thiện có ý nghĩa ở bài toán ba vùng.
+
+Bằng chứng cấp tỉnh nhất quán trên:
+
+- Ba initialization seed.
+- Accuracy.
+- Balanced accuracy/macro-F1 aggregate.
+- Speaker-level bootstrap CI.
+- Exact paired McNemar test.
+
+Đây là đóng góp thực nghiệm mạnh nhất của hệ thống hiện tại. Khi viết bài, cần
+nêu rõ đơn vị bootstrap là speaker và test set có 2.026 utterance/1.344 speaker.
