@@ -84,6 +84,9 @@ class DialectCollator:
         self.audio_column = data_config["audio_column"]
         self.region_column = data_config["region_column"]
         self.province_column = data_config["province_column"]
+        self.province_name_column = data_config.get("province_name_column", "province_name")
+        self.speaker_column = data_config.get("speaker_column", "speakerID")
+        self.filename_column = data_config.get("filename_column", "filename")
         self.sample_rate = int(data_config["sample_rate"])
         self.max_length = int(float(data_config["max_seconds"]) * self.sample_rate)
         self.region_vocab = region_vocab
@@ -144,4 +147,13 @@ class DialectCollator:
                 [self.province_vocab.encode(x[self.province_column]) for x in examples],
                 dtype=torch.long,
             ),
+            "filenames": [
+                str(example.get(self.filename_column, "")) for example in examples
+            ],
+            "speaker_ids": [
+                str(example.get(self.speaker_column, "")) for example in examples
+            ],
+            "province_names": [
+                str(example.get(self.province_name_column, "")) for example in examples
+            ],
         }

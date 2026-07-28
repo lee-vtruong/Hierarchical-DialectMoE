@@ -69,12 +69,23 @@ def main() -> None:
         ],
         root,
     )
-    source = output_dir / f"metrics_{args.split}.json"
-    destination = output_dir / f"metrics_{args.split}_{checkpoint.stem}.json"
-    shutil.copy2(source, destination)
-    print(f"Experiment complete. Metrics: {destination}", flush=True)
+    artifact_names = [
+        f"metrics_{args.split}",
+        f"predictions_{args.split}",
+        f"region_confusion_{args.split}",
+        f"province_confusion_{args.split}",
+    ]
+    extensions = [".json", ".jsonl", ".csv", ".csv"]
+    destinations = []
+    for name, extension in zip(artifact_names, extensions):
+        source = output_dir / f"{name}{extension}"
+        destination = output_dir / f"{name}_{checkpoint.stem}{extension}"
+        shutil.copy2(source, destination)
+        destinations.append(destination)
+    print("Experiment complete. Artifacts:", flush=True)
+    for destination in destinations:
+        print(f"- {destination}", flush=True)
 
 
 if __name__ == "__main__":
     main()
-

@@ -7,6 +7,8 @@ data:
   audio_column: audio
   region_column: region
   province_column: province_code
+  province_name_column: province_name
+  filename_column: filename
   speaker_column: speakerID
   sample_rate: 16000
   max_seconds: 20.0
