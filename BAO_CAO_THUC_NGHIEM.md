@@ -986,3 +986,30 @@ Ba job được chạy lại thành công trên các GPU vật lý 7, 2 và 5, m
 với `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True`. Kết quả cuối có đủ 9 file
 `metrics_test_best_province_accuracy.json`; các lần lỗi cũ chỉ được giữ trong log
 để truy vết và không được dùng trong bảng tổng hợp.
+
+## 15. Thiết kế H4 - Sweep load-balancing trên validation
+
+H4 được thiết kế sau khi H3 cho thấy soft routing gần uniform tối đa. Mục tiêu là
+tìm hệ số load-balancing cân bằng giữa hai cực:
+
+```text
+expert collapse <- chuyên môn hóa hữu ích -> uniform routing
+```
+
+Sáu giá trị được lên kế hoạch: `0`, `0,0001`, `0,001`, `0,005`, `0,01` và `0,02`.
+Giai đoạn sweep chỉ dùng seed 42 và validation set. Cấu hình, checkpoint và
+hyperparameter không được chọn bằng test set.
+
+Ngoài accuracy, balanced accuracy và macro-F1, pipeline đánh giá được bổ sung:
+
+- Entropy mềm chuẩn hóa theo `ln(num_experts)`.
+- Số expert hiệu dụng `exp(entropy)`.
+- Entropy của top-1 expert assignment.
+- Số expert thực sự hoạt động và tỉ lệ expert lớn nhất.
+- NMI giữa expert assignment với region.
+- NMI giữa expert assignment với province.
+
+Quy tắc chọn là province macro-F1 validation cao nhất trong các run không
+collapse; province balanced accuracy và province accuracy được dùng để phá hòa.
+Sau sweep, cấu hình được chọn phải được lặp lại trên seed 42/43/44 ở validation
+trước khi khóa và đánh giá test cuối.

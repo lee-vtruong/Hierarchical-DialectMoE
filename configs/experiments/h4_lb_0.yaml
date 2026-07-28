@@ -1,0 +1,9 @@
+extends: h3_router_acoustic_prosody.yaml
+
+seed: 42
+
+training:
+  output_dir: outputs/h4_lb_0_seed42
+
+loss:
+  load_balance_weight: 0.0

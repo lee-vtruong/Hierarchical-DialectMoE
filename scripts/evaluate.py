@@ -13,6 +13,7 @@ from sklearn.metrics import (
     balanced_accuracy_score,
     classification_report,
     confusion_matrix,
+    normalized_mutual_info_score,
 )
 from torch.utils.data import DataLoader
 from tqdm import tqdm
@@ -165,6 +166,14 @@ def main() -> None:
         ),
         "active_for_prediction": bool(model.use_moe),
     }
+    num_router_outputs = routing.shape[1]
+    max_entropy = float(np.log(num_router_outputs)) if num_router_outputs > 1 else 0.0
+    routing_metrics["normalized_mean_entropy"] = (
+        routing_metrics["mean_entropy"] / max_entropy if max_entropy > 0 else 0.0
+    )
+    routing_metrics["effective_experts"] = float(
+        np.exp(routing_metrics["mean_entropy"])
+    )
     region_expert_matrix = province_expert_matrix = None
     if model.use_moe:
         assignments = routing.argmax(axis=1)
@@ -174,6 +183,30 @@ def main() -> None:
         routing_metrics["top1_assignment_fractions"] = (
             assignment_counts / assignment_counts.sum()
         ).tolist()
+        assignment_fractions = assignment_counts / assignment_counts.sum()
+        top1_entropy = float(
+            -(
+                assignment_fractions
+                * np.log(np.clip(assignment_fractions, 1e-8, 1.0))
+            ).sum()
+        )
+        routing_metrics["top1_assignment_entropy"] = top1_entropy
+        routing_metrics["normalized_top1_assignment_entropy"] = (
+            top1_entropy / max_entropy if max_entropy > 0 else 0.0
+        )
+        routing_metrics["active_experts_top1"] = int((assignment_counts > 0).sum())
+        routing_metrics["max_top1_assignment_fraction"] = float(
+            assignment_fractions.max()
+        )
+        routing_metrics["min_top1_assignment_fraction"] = float(
+            assignment_fractions.min()
+        )
+        routing_metrics["region_expert_nmi"] = float(
+            normalized_mutual_info_score(targets_region, assignments)
+        )
+        routing_metrics["province_expert_nmi"] = float(
+            normalized_mutual_info_score(targets_province, assignments)
+        )
         region_expert_matrix = np.zeros(
             (len(bundle.region_vocab), num_experts), dtype=np.int64
         )
