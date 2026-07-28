@@ -1,0 +1,20 @@
+extends: ../vimd_moe.yaml
+
+seed: 42
+
+model:
+  use_acoustic: true
+  use_prosody: true
+  use_hierarchical_router: true
+  use_moe: true
+  router_input: acoustic
+  num_experts: 4
+  top_k: 1
+
+training:
+  output_dir: outputs/h3_router_acoustic_seed42
+
+loss:
+  router_weight: 0.0
+  load_balance_weight: 0.02
+

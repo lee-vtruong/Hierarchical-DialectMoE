@@ -1,0 +1,7 @@
+extends: h3_router_acoustic_prosody.yaml
+
+seed: 44
+
+training:
+  output_dir: outputs/h3_router_acoustic_prosody_seed44
+

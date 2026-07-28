@@ -39,6 +39,16 @@ def save_confusion_csv(
             writer.writerow([label, *row.tolist()])
 
 
+def save_expert_matrix_csv(
+    matrix: np.ndarray, row_labels: list[str], path: Path
+) -> None:
+    with path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(["label/expert", *[f"expert_{i}" for i in range(matrix.shape[1])]])
+        for label, row in zip(row_labels, matrix):
+            writer.writerow([label, *row.tolist()])
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", default="configs/vimd_moe.yaml")
@@ -148,17 +158,41 @@ def main() -> None:
     for target, ranking in zip(province_targets_array, rankings):
         rank = int(np.where(ranking == target)[0][0]) + 1
         reciprocal_ranks.append(1.0 / rank)
+    routing_metrics = {
+        "mean_expert_probability": routing.mean(axis=0).tolist(),
+        "mean_entropy": float(
+            -(routing * np.log(np.clip(routing, 1e-8, 1.0))).sum(axis=1).mean()
+        ),
+        "active_for_prediction": bool(model.use_moe),
+    }
+    region_expert_matrix = province_expert_matrix = None
+    if model.use_moe:
+        assignments = routing.argmax(axis=1)
+        num_experts = routing.shape[1]
+        assignment_counts = np.bincount(assignments, minlength=num_experts)
+        routing_metrics["top1_assignment_counts"] = assignment_counts.tolist()
+        routing_metrics["top1_assignment_fractions"] = (
+            assignment_counts / assignment_counts.sum()
+        ).tolist()
+        region_expert_matrix = np.zeros(
+            (len(bundle.region_vocab), num_experts), dtype=np.int64
+        )
+        province_expert_matrix = np.zeros(
+            (len(bundle.province_vocab), num_experts), dtype=np.int64
+        )
+        np.add.at(region_expert_matrix, (np.asarray(targets_region), assignments), 1)
+        np.add.at(
+            province_expert_matrix, (np.asarray(targets_province), assignments), 1
+        )
+        routing_metrics["region_to_expert_counts"] = region_expert_matrix.tolist()
+        routing_metrics["province_to_expert_counts"] = province_expert_matrix.tolist()
+
     metrics = {
         "region": scores(targets_region, predictions_region, bundle.region_vocab.labels),
         "province": scores(
             targets_province, predictions_province, bundle.province_vocab.labels
         ),
-        "routing": {
-            "mean_expert_probability": routing.mean(axis=0).tolist(),
-            "mean_entropy": float(
-                -(routing * np.log(np.clip(routing, 1e-8, 1.0))).sum(axis=1).mean()
-            ),
-        },
+        "routing": routing_metrics,
         "province_ranking": {
             "top_1_accuracy": float(
                 np.mean(rankings[:, :1] == province_targets_array[:, None])
@@ -191,6 +225,17 @@ def main() -> None:
         bundle.province_vocab.labels,
         output_dir / f"province_confusion_{args.split}.csv",
     )
+    if region_expert_matrix is not None and province_expert_matrix is not None:
+        save_expert_matrix_csv(
+            region_expert_matrix,
+            bundle.region_vocab.labels,
+            output_dir / f"region_to_expert_{args.split}.csv",
+        )
+        save_expert_matrix_csv(
+            province_expert_matrix,
+            bundle.province_vocab.labels,
+            output_dir / f"province_to_expert_{args.split}.csv",
+        )
     print(json.dumps(metrics, ensure_ascii=False, indent=2))
     print(f"Predictions: {predictions_path}")
 

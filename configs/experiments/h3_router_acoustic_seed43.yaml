@@ -1,0 +1,7 @@
+extends: h3_router_acoustic.yaml
+
+seed: 43
+
+training:
+  output_dir: outputs/h3_router_acoustic_seed43
+

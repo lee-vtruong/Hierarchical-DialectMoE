@@ -104,6 +104,7 @@ class HierarchicalDialectMoE(nn.Module):
             model_config.get("use_hierarchical_router", True)
         )
         self.use_moe = bool(model_config.get("use_moe", True))
+        self.router_input = model_config.get("router_input", "acoustic_prosody")
         backbone_dim = int(self.backbone.config.hidden_size)
 
         if model_config.get("gradient_checkpointing", False):
@@ -135,6 +136,14 @@ class HierarchicalDialectMoE(nn.Module):
 
         self.region_head = nn.Linear(fusion_dim, num_regions)
         self.region_embedding = nn.Linear(num_regions, fusion_dim, bias=False)
+        # These projections are instantiated only for new H3 configurations.
+        # Existing checkpoints omit router_input and remain state-dict compatible.
+        if "router_input" in model_config:
+            self.router_acoustic_projection = nn.Linear(acoustic_dim, fusion_dim)
+            self.router_prosody_projection = nn.Linear(prosody_dim, fusion_dim)
+            self.router_joint_projection = nn.Linear(
+                acoustic_dim + prosody_dim, fusion_dim
+            )
         self.router = MLP(fusion_dim * 2, fusion_dim, num_experts, dropout)
         self.moe = SparseMixtureOfExperts(
             input_dim=fusion_dim,
@@ -190,7 +199,23 @@ class HierarchicalDialectMoE(nn.Module):
             region_context = self.region_embedding(torch.softmax(region_logits, dim=-1))
         else:
             region_context = fused.new_zeros(fused.shape)
-        router_logits = self.router(torch.cat([fused, region_context], dim=-1))
+        if self.router_input == "acoustic":
+            router_features = self.router_acoustic_projection(acoustic)
+        elif self.router_input == "prosody":
+            router_features = self.router_prosody_projection(prosodic)
+        elif self.router_input == "acoustic_prosody":
+            router_features = (
+                self.router_joint_projection(joined)
+                if hasattr(self, "router_joint_projection")
+                else fused
+            )
+        else:
+            raise ValueError(
+                "router_input must be one of: acoustic, prosody, acoustic_prosody"
+            )
+        router_logits = self.router(
+            torch.cat([router_features, region_context], dim=-1)
+        )
         if self.use_moe:
             expert_features, balance_loss, router_probabilities = self.moe(
                 fused, router_logits

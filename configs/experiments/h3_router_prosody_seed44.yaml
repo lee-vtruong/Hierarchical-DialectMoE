@@ -1,0 +1,7 @@
+extends: h3_router_prosody.yaml
+
+seed: 44
+
+training:
+  output_dir: outputs/h3_router_prosody_seed44
+

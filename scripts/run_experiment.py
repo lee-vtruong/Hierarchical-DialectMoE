@@ -82,6 +82,15 @@ def main() -> None:
         destination = output_dir / f"{name}_{checkpoint.stem}{extension}"
         shutil.copy2(source, destination)
         destinations.append(destination)
+    for name in (
+        f"region_to_expert_{args.split}",
+        f"province_to_expert_{args.split}",
+    ):
+        source = output_dir / f"{name}.csv"
+        if source.exists():
+            destination = output_dir / f"{name}_{checkpoint.stem}.csv"
+            shutil.copy2(source, destination)
+            destinations.append(destination)
     print("Experiment complete. Artifacts:", flush=True)
     for destination in destinations:
         print(f"- {destination}", flush=True)
