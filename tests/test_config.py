@@ -22,3 +22,14 @@ def test_balanced_moe_override():
     assert config["loss"]["router_weight"] == 0.0
     assert config["loss"]["load_balance_weight"] == 0.1
 
+
+def test_legacy_acoustic_only_does_not_opt_into_dynamic_h5_fusion():
+    root = Path(__file__).resolve().parents[1]
+    legacy = load_config(root / "configs" / "experiments" / "acoustic_only.yaml")
+    h5 = load_config(
+        root / "configs" / "experiments" / "h5_acoustic_pitch_energy.yaml"
+    )
+    assert "use_spectral" not in legacy["model"]
+    assert "prosody_feature_set" not in legacy["model"]
+    assert h5["model"]["use_spectral"] is False
+    assert h5["model"]["prosody_feature_set"] == "pitch_energy"

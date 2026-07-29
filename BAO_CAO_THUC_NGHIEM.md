@@ -1445,3 +1445,20 @@ indirection indices. Lệnh `dataset.unique()` để dựng label vocabulary kí
 Đã sửa bằng cách dựng region/province vocabulary trên Arrow table gốc trước khi
 áp manifest. Sau đó mới select/concatenate và cast audio. Cách này không materialize
 lại cột audio, giữ nguyên label mapping của checkpoint cũ và tránh overflow.
+
+### 17.5 Tương thích fusion của checkpoint acoustic-only cũ
+
+Sau khi sửa Arrow, checkpoint acoustic-only cũ báo fusion weight có input 384
+trong khi model mới tạo input 256. Nguyên nhân là model trước H5 luôn nối acoustic
+256 chiều với prosody zero 128 chiều, kể cả khi `use_prosody = false`. H5 đã tối
+ưu bằng cách loại nhánh tắt khỏi fusion, vô tình thay đổi architecture của config
+legacy.
+
+Đã thêm hai chế độ:
+
+- Config pre-H5 không khai báo `use_spectral`/`prosody_feature_set`: giữ fusion
+  legacy `acoustic_dim + prosody_dim`, tương thích checkpoint cũ.
+- Config H5 khai báo rõ feature keys: dùng dynamic fusion theo các nhánh bật.
+
+Không chuyển đổi hoặc sửa checkpoint; architecture tương thích được phục hồi từ
+config.

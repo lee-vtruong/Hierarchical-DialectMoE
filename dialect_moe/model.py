@@ -99,6 +99,13 @@ class HierarchicalDialectMoE(nn.Module):
         self.prosody_feature_set = model_config.get(
             "prosody_feature_set", "legacy"
         )
+        # Pre-H5 checkpoints always fused acoustic_dim + prosody_dim, even when
+        # one branch was disabled and represented by zeros. Only configs that
+        # explicitly opt into H5 feature keys use dynamic branch dimensions.
+        self.dynamic_feature_fusion = (
+            "use_spectral" in model_config
+            or "prosody_feature_set" in model_config
+        )
         # Force the non-pickle checkpoint format. Recent Transformers versions
         # reject torch.load on PyTorch < 2.6 because of CVE-2025-32434.
         self.backbone = (
@@ -151,9 +158,13 @@ class HierarchicalDialectMoE(nn.Module):
                 len(SPECTRAL_FEATURE_NAMES), spectral_dim, spectral_dim, dropout
             )
         joined_dim = (
-            (acoustic_dim if self.use_acoustic else 0)
-            + (prosody_dim if self.use_prosody else 0)
-            + (spectral_dim if self.use_spectral else 0)
+            (
+                (acoustic_dim if self.use_acoustic else 0)
+                + (prosody_dim if self.use_prosody else 0)
+                + (spectral_dim if self.use_spectral else 0)
+            )
+            if self.dynamic_feature_fusion
+            else acoustic_dim + prosody_dim
         )
         if joined_dim == 0:
             raise ValueError("At least one of acoustic, prosody, or spectral must be enabled")
@@ -233,13 +244,16 @@ class HierarchicalDialectMoE(nn.Module):
             spectral_features = acoustic.new_zeros(
                 acoustic.shape[0], self.spectral_dim
             )
-        joined_parts = []
-        if self.use_acoustic:
-            joined_parts.append(acoustic)
-        if self.use_prosody:
-            joined_parts.append(prosodic)
-        if self.use_spectral:
-            joined_parts.append(spectral_features)
+        if self.dynamic_feature_fusion:
+            joined_parts = []
+            if self.use_acoustic:
+                joined_parts.append(acoustic)
+            if self.use_prosody:
+                joined_parts.append(prosodic)
+            if self.use_spectral:
+                joined_parts.append(spectral_features)
+        else:
+            joined_parts = [acoustic, prosodic]
         joined = torch.cat(joined_parts, dim=-1)
         fused = self.fusion_projection(joined) * self.fusion_gate(joined)
 
