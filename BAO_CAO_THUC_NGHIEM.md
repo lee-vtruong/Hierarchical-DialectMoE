@@ -1428,3 +1428,20 @@ Vì train split không thay đổi, không huấn luyện lại mô hình. H6 t�
 checkpoint acoustic-only/acoustic+prosody đã khóa và chỉ đánh giá chúng trên
 repaired test. Cách làm này cô lập tác động của ba utterance leakage, tránh thêm
 variance do retraining và tiết kiệm compute.
+
+### 17.4 Lỗi PyArrow khi đánh giá manifest và cách sửa
+
+Lần đánh giá đầu tiên dừng với:
+
+```text
+pyarrow.lib.ArrowInvalid: offset overflow while concatenating arrays
+```
+
+Nguyên nhân không nằm ở manifest. Sau `select`/`concatenate_datasets`, dataset có
+indirection indices. Lệnh `dataset.unique()` để dựng label vocabulary kích hoạt
+`flatten_indices()`, khiến PyArrow cố nối cột audio nhúng lớn hơn giới hạn offset
+32-bit.
+
+Đã sửa bằng cách dựng region/province vocabulary trên Arrow table gốc trước khi
+áp manifest. Sau đó mới select/concatenate và cast audio. Cách này không materialize
+lại cột audio, giữ nguyên label mapping của checkpoint cũ và tránh overflow.

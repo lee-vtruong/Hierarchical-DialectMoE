@@ -103,6 +103,20 @@ def load_vimd(config: dict[str, Any], max_samples: int | None = None) -> Dataset
             data_config["dataset_name"],
             cache_dir=data_config.get("cache_dir"),
         )
+    # Build label vocabularies on the original Arrow tables. Calling unique()
+    # after select()/concatenate_datasets() may flatten indexed audio columns;
+    # large embedded-audio arrays can then overflow Arrow's 32-bit offsets.
+    region_values: list[str] = []
+    province_values: list[object] = []
+    for dataset in datasets.values():
+        region_values.extend(
+            normalize_region(value)
+            for value in dataset.unique(data_config["region_column"])
+        )
+        province_values.extend(dataset.unique(data_config["province_column"]))
+    region_vocab = LabelVocabulary(region_values)
+    province_vocab = LabelVocabulary(province_values)
+
     if data_config.get("split_manifest"):
         datasets = _apply_split_manifest(
             datasets, data_config["split_manifest"]
@@ -115,14 +129,6 @@ def load_vimd(config: dict[str, Any], max_samples: int | None = None) -> Dataset
         Audio(sampling_rate=data_config["sample_rate"], decode=False),
     )
 
-    region_values: list[str] = []
-    province_values: list[object] = []
-    for dataset in datasets.values():
-        region_values.extend(normalize_region(value) for value in dataset.unique(data_config["region_column"]))
-        province_values.extend(dataset.unique(data_config["province_column"]))
-
-    region_vocab = LabelVocabulary(region_values)
-    province_vocab = LabelVocabulary(province_values)
     if max_samples:
         datasets = DatasetDict(
             {
