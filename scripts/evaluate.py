@@ -56,6 +56,11 @@ def main() -> None:
     parser.add_argument("--checkpoint", required=True)
     parser.add_argument("--split", default="test")
     parser.add_argument("--max-samples", type=int, default=None)
+    parser.add_argument(
+        "--output-dir",
+        default=None,
+        help="Artifact directory; defaults to the checkpoint directory.",
+    )
     args = parser.parse_args()
 
     config = load_config(args.config)
@@ -247,7 +252,12 @@ def main() -> None:
             "mrr": float(np.mean(reciprocal_ranks)),
         },
     }
-    output_dir = Path(args.checkpoint).parent
+    output_dir = (
+        Path(args.output_dir)
+        if args.output_dir is not None
+        else Path(args.checkpoint).parent
+    )
+    output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / f"metrics_{args.split}.json"
     save_json(metrics, output_path)
     predictions_path = output_dir / f"predictions_{args.split}.jsonl"

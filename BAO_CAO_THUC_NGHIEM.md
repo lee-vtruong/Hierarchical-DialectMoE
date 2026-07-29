@@ -1410,3 +1410,21 @@ Hai speaker overlap được giữ trong validation; ba utterance tương ứng 
 từ test sang validation. Dự kiến train giữ nguyên 15.023 utterance, validation
 tăng lên 1.903 và test giảm xuống 2.023. Quyết định chỉ dựa trên metadata, không
 sử dụng prediction hay metric mô hình.
+
+### 17.3 Xác nhận manifest
+
+Manifest tạo thành công với:
+
+- `strategy = preserve`.
+- `moved_speakers = 2`.
+- `moved_utterances = 3`.
+- Train: 15.023 utterance, 10.291 speaker.
+- Validation: 1.903 utterance, 1.320 speaker.
+- Test: 2.023 utterance, 1.342 speaker.
+- Không speaker overlap sau repair.
+- Cả 63 province vẫn có mặt trong từng split.
+
+Vì train split không thay đổi, không huấn luyện lại mô hình. H6 tái sử dụng sáu
+checkpoint acoustic-only/acoustic+prosody đã khóa và chỉ đánh giá chúng trên
+repaired test. Cách làm này cô lập tác động của ba utterance leakage, tránh thêm
+variance do retraining và tiết kiệm compute.

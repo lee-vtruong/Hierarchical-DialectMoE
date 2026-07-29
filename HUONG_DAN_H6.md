@@ -216,9 +216,105 @@ h6_speaker_disjoint_prosody_seed43.yaml
 h6_speaker_disjoint_prosody_seed44.yaml
 ```
 
-Chưa chạy sáu config cho đến khi audit và phân bố split mới được duyệt.
+Manifest đã được duyệt. Vì train split giữ nguyên, không cần train lại. Sáu config
+được dùng để đánh giá các checkpoint cũ trên test đã sửa.
 
-## 11. Lưu ý phương pháp
+## 11. Đánh giá checkpoint cũ trên repaired test
+
+Chạy tuần tự để không cần GPU trống cùng lúc:
+
+```bash
+CONFIGS=(
+  h6_speaker_disjoint_acoustic
+  h6_speaker_disjoint_acoustic_seed43
+  h6_speaker_disjoint_acoustic_seed44
+  h6_speaker_disjoint_prosody
+  h6_speaker_disjoint_prosody_seed43
+  h6_speaker_disjoint_prosody_seed44
+)
+
+CHECKPOINTS=(
+  outputs/acoustic_only_seed42/best_province_accuracy.pt
+  outputs/acoustic_only_seed43/best_province_accuracy.pt
+  outputs/acoustic_only_seed44/best_province_accuracy.pt
+  outputs/acoustic_prosody_seed42/best_province_accuracy.pt
+  outputs/acoustic_prosody_seed43/best_province_accuracy.pt
+  outputs/acoustic_prosody_seed44/best_province_accuracy.pt
+)
+
+nohup bash -c '
+set -e
+CONFIGS=(
+  h6_speaker_disjoint_acoustic
+  h6_speaker_disjoint_acoustic_seed43
+  h6_speaker_disjoint_acoustic_seed44
+  h6_speaker_disjoint_prosody
+  h6_speaker_disjoint_prosody_seed43
+  h6_speaker_disjoint_prosody_seed44
+)
+CHECKPOINTS=(
+  outputs/acoustic_only_seed42/best_province_accuracy.pt
+  outputs/acoustic_only_seed43/best_province_accuracy.pt
+  outputs/acoustic_only_seed44/best_province_accuracy.pt
+  outputs/acoustic_prosody_seed42/best_province_accuracy.pt
+  outputs/acoustic_prosody_seed43/best_province_accuracy.pt
+  outputs/acoustic_prosody_seed44/best_province_accuracy.pt
+)
+for i in "${!CONFIGS[@]}"; do
+  .venv/bin/python -u scripts/run_experiment.py \
+    --config "configs/experiments/${CONFIGS[$i]}.yaml" \
+    --checkpoint "${CHECKPOINTS[$i]}" \
+    --split test \
+    --skip-train
+done
+' > logs/h6_repaired_test_evaluation.log 2>&1 &
+
+echo $! > logs/h6_repaired_test_evaluation.pid
+```
+
+`evaluate.py` ghi artifacts vào output directory H6, không ghi đè metrics cũ
+cạnh checkpoint nguồn.
+
+Theo dõi:
+
+```bash
+tail -f logs/h6_repaired_test_evaluation.log
+```
+
+Tổng hợp acoustic:
+
+```bash
+python scripts/summarize_experiments.py \
+  --outputs outputs \
+  --pattern 'h6_speaker_disjoint_acoustic_seed*/metrics_test_best_province_accuracy.json' \
+  --destination outputs/h6_acoustic_repaired_test.csv \
+  --aggregate-destination outputs/h6_acoustic_repaired_test_aggregate.csv
+```
+
+Tổng hợp prosody:
+
+```bash
+python scripts/summarize_experiments.py \
+  --outputs outputs \
+  --pattern 'h6_speaker_disjoint_prosody_seed*/metrics_test_best_province_accuracy.json' \
+  --destination outputs/h6_prosody_repaired_test.csv \
+  --aggregate-destination outputs/h6_prosody_repaired_test_aggregate.csv
+```
+
+Paired H1 trên repaired test:
+
+```bash
+for seed in 42 43 44; do
+  python scripts/compare_predictions.py \
+    --baseline "outputs/h6_speaker_disjoint_acoustic_seed${seed}/predictions_test_best_province_accuracy.jsonl" \
+    --candidate "outputs/h6_speaker_disjoint_prosody_seed${seed}/predictions_test_best_province_accuracy.jsonl" \
+    --output "outputs/h6_prosody_vs_acoustic_repaired_test_seed${seed}.json" \
+    --bootstrap-iterations 10000 \
+    --seed "$seed"
+done
+```
+
+## 12. Lưu ý phương pháp
 
 - Split seed là 42 và phải giữ cố định.
 - Mỗi speaker chỉ thuộc đúng một split.

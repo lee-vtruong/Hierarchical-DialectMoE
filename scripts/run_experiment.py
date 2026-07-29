@@ -24,6 +24,11 @@ def main() -> None:
     parser.add_argument("--split", default="test")
     parser.add_argument("--max-samples", type=int)
     parser.add_argument("--skip-train", action="store_true")
+    parser.add_argument(
+        "--checkpoint",
+        default=None,
+        help="Evaluate an explicit compatible checkpoint instead of training/output lookup.",
+    )
     args = parser.parse_args()
 
     root = Path(__file__).resolve().parents[1]
@@ -33,6 +38,8 @@ def main() -> None:
     config = load_config(config_path)
     output_dir = root / config["training"]["output_dir"]
 
+    if args.checkpoint and not args.skip_train:
+        raise ValueError("--checkpoint requires --skip-train")
     if not args.skip_train:
         train_command = [
             sys.executable,
@@ -49,7 +56,14 @@ def main() -> None:
         output_dir / "last.pt",
         output_dir / "best.pt",
     ]
-    checkpoint = next((path for path in candidates if path.exists()), None)
+    if args.checkpoint:
+        checkpoint = Path(args.checkpoint)
+        if not checkpoint.is_absolute():
+            checkpoint = root / checkpoint
+        if not checkpoint.is_file():
+            raise FileNotFoundError(f"Explicit checkpoint not found: {checkpoint}")
+    else:
+        checkpoint = next((path for path in candidates if path.exists()), None)
     if checkpoint is None:
         raise FileNotFoundError(
             f"No checkpoint found in {output_dir}. Expected one of: "
@@ -65,6 +79,8 @@ def main() -> None:
         str(checkpoint),
         "--split",
         args.split,
+        "--output-dir",
+        str(output_dir),
     ]
     if args.max_samples:
         evaluate_command.extend(["--max-samples", str(args.max_samples)])
