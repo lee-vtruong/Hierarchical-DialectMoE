@@ -306,3 +306,85 @@ outputs/h4_lb_001_routing_multiseed.csv
 ```
 
 Không chạy test trước khi phân tích xong ba seed validation.
+
+## 11. Kết quả xác nhận `0.001` và so sánh baseline validation
+
+Ba seed của H4 đạt:
+
+```text
+province accuracy          = 0.4963 ± 0.0016
+province balanced accuracy = 0.4921 ± 0.0006
+province macro-F1          = 0.4851 ± 0.0023
+```
+
+Không seed nào collapse, nhưng soft entropy vẫn gần uniform tối đa. Trước khi
+quyết định chạy test, phải so sánh với baseline acoustic + prosody không MoE trên
+validation.
+
+Các checkpoint baseline đã tồn tại nên chỉ đánh giá lại, không train:
+
+```bash
+for config in \
+  acoustic_prosody \
+  acoustic_prosody_seed43 \
+  acoustic_prosody_seed44
+do
+  .venv/bin/python -u scripts/run_experiment.py \
+    --config "configs/experiments/${config}.yaml" \
+    --split valid \
+    --skip-train
+done
+```
+
+Lệnh trên chạy tuần tự và thường nhanh hơn training. Có thể chạy bằng `nohup` nếu
+muốn tách terminal:
+
+```bash
+nohup bash -c '
+set -e
+for config in acoustic_prosody acoustic_prosody_seed43 acoustic_prosody_seed44; do
+  .venv/bin/python -u scripts/run_experiment.py \
+    --config "configs/experiments/${config}.yaml" \
+    --split valid \
+    --skip-train
+done
+' > logs/h4_baseline_validation.log 2>&1 &
+
+echo $! > logs/h4_baseline_validation.pid
+```
+
+Tổng hợp baseline:
+
+```bash
+python scripts/summarize_experiments.py \
+  --outputs outputs \
+  --pattern 'acoustic_prosody_seed*/metrics_valid_best_province_accuracy.json' \
+  --destination outputs/h4_baseline_validation.csv \
+  --aggregate-destination outputs/h4_baseline_validation_aggregate.csv
+```
+
+Kiểm định paired H4 so với baseline trên validation:
+
+```bash
+for seed in 42 43 44; do
+  python scripts/compare_predictions.py \
+    --baseline "outputs/acoustic_prosody_seed${seed}/predictions_valid_best_province_accuracy.jsonl" \
+    --candidate "outputs/h4_lb_001_seed${seed}/predictions_valid_best_province_accuracy.jsonl" \
+    --output "outputs/h4_vs_baseline_valid_seed${seed}.json" \
+    --bootstrap-iterations 10000 \
+    --seed "$seed"
+done
+```
+
+Tải về:
+
+```text
+outputs/h4_baseline_validation.csv
+outputs/h4_baseline_validation_aggregate.csv
+outputs/h4_vs_baseline_valid_seed42.json
+outputs/h4_vs_baseline_valid_seed43.json
+outputs/h4_vs_baseline_valid_seed44.json
+```
+
+Chỉ sau khi phân tích năm file này mới quyết định chạy test cuối hay dừng nhánh
+MoE.

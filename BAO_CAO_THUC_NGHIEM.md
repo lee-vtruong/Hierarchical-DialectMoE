@@ -1053,3 +1053,55 @@ Hệ số `load_balance_weight = 0,001` được khóa cho giai đoạn xác nh�
 trên seed 43 và 44. Giai đoạn này vẫn không sử dụng test set. Sau khi có ba seed,
 cần kiểm tra đồng thời province macro-F1, variance, collapse, entropy và NMI trước
 khi quyết định có đưa cấu hình vào đánh giá test cuối hay không.
+
+### 15.4 Kết quả xác nhận đa seed trên validation
+
+| Seed | Region accuracy | Region macro-F1 | Province accuracy | Province balanced accuracy | Province macro-F1 |
+|---:|---:|---:|---:|---:|---:|
+| 42 | 0,8963 | 0,8922 | 0,4979 | 0,4928 | 0,4867 |
+| 43 | 0,8995 | 0,8955 | 0,4963 | 0,4919 | 0,4861 |
+| 44 | 0,8905 | 0,8853 | 0,4947 | 0,4916 | 0,4824 |
+| **Mean ± SD** | **0,8954 ± 0,0045** | **0,8910 ± 0,0052** | **0,4963 ± 0,0016** | **0,4921 ± 0,0006** | **0,4851 ± 0,0023** |
+
+Hiệu năng cấp tỉnh lặp lại tốt:
+
+- Province accuracy chỉ dao động từ 0,4947 đến 0,4979.
+- Province balanced accuracy có SD khoảng 0,0006.
+- Province macro-F1 có SD khoảng 0,0023.
+
+Độ ổn định này mạnh hơn kết quả MoE-2 trước đó, nhưng mới chỉ chứng minh cấu hình
+H4 tự lặp lại; chưa chứng minh nó tốt hơn baseline không MoE.
+
+### 15.5 Routing qua ba seed
+
+| Seed | Soft entropy chuẩn hóa | Top-1 entropy chuẩn hóa | Expert lớn nhất | Region NMI | Province NMI | Collapse |
+|---:|---:|---:|---:|---:|---:|---:|
+| 42 | 0,999994 | 0,7124 | 0,6432 | 0,2285 | 0,1566 | Không |
+| 43 | 0,999982 | 0,7127 | 0,6421 | 0,1234 | 0,1185 | Không |
+| 44 | 0,999979 | 0,6813 | 0,6711 | 0,2440 | 0,1549 | Không |
+
+Cả bốn expert đều hoạt động ở mọi seed và không có expert vượt ngưỡng collapse
+90%. Tỉ lệ expert lớn nhất khá ổn định, khoảng 64-67%. Tuy nhiên:
+
+- Soft entropy vẫn gần 1, tức xác suất router gần uniform.
+- Expert chiếm ưu thế không có cùng chỉ số qua các seed.
+- Region/province NMI giảm đáng kể ở seed 43.
+
+Do expert label có tính hoán vị giữa các initialization, việc expert số mấy chiếm
+ưu thế không cần giống nhau. Dẫu vậy, soft routing gần uniform cho thấy bằng chứng
+về specialization vẫn yếu. Kết quả hiện tại chỉ hỗ trợ nhận định thận trọng rằng
+top-1 assignment có cấu trúc và không collapse.
+
+### 15.6 Cổng quyết định trước test cuối
+
+Chưa chuyển trực tiếp sang test. Cần đánh giá ba checkpoint baseline
+`acoustic + prosody, no MoE` trên validation bằng cùng pipeline, sau đó thực hiện
+paired bootstrap và McNemar trên validation predictions.
+
+Chỉ đưa H4 sang test cuối nếu:
+
+- Mean province macro-F1/accuracy validation không kém baseline đáng kể.
+- Hiệu ứng không phụ thuộc duy nhất một seed.
+- Paired results không cho thấy H4 suy giảm rõ ràng.
+
+Quy tắc này tránh dùng test set để quyết định có giữ MoE hay không.
