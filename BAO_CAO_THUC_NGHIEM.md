@@ -1514,3 +1514,69 @@ Script `scripts/analyze_h7.py` sinh bảng từng seed, bảng aggregate theo t�
 confusion pair, calibration bin và `h7_summary.json`. Prediction hiện chưa lưu
 thời lượng audio nên phân tích duration được tách khỏi H7 chính; không suy diễn
 thời lượng từ filename hay kích thước probability.
+
+### 18.1 Chuyển trạng thái dự đoán
+
+Mỗi seed có 2.023 mẫu repaired test. Khi thay acoustic-only bằng acoustic +
+prosody:
+
+| Seed | Cả hai đúng | Prosody sửa đúng | Cả hai sai | Prosody làm sai |
+|---:|---:|---:|---:|---:|
+| 42 | 579 | 297 | 960 | 187 |
+| 43 | 645 | 256 | 942 | 180 |
+| 44 | 622 | 288 | 931 | 182 |
+| Tổng | 1.846 | **841** | 2.833 | **549** |
+
+Prosody tạo lợi ròng 292 lượt dự đoán đúng qua ba seed. Kết quả này phù hợp với
+chênh lệch province accuracy dương đã được kiểm định paired ở H6, nhưng vẫn còn
+549 trường hợp acoustic-only đúng bị prosody làm sai.
+
+### 18.2 Hiệu quả theo tỉnh
+
+Trong 63 tỉnh, accuracy trung bình tăng ở 34 tỉnh, giảm ở 23 tỉnh và không đổi ở
+6 tỉnh. Có 17 tỉnh tăng ở cả ba seed và 6 tỉnh giảm ở cả ba seed.
+
+| Tỉnh | Acoustic | Acoustic + prosody | Chênh lệch | Seed cải thiện |
+|---:|---:|---:|---:|---:|
+| 17 | 0,1616 | 0,6667 | **+0,5051** | 3/3 |
+| 30 | 0,4598 | 0,8046 | **+0,3448** | 3/3 |
+| 22 | 0,1569 | 0,4706 | **+0,3137** | 3/3 |
+| 81 | 0,4242 | 0,7172 | **+0,2929** | 3/3 |
+| 77 | 0,7024 | 0,9762 | **+0,2738** | 3/3 |
+
+Các suy giảm nhất quán lớn nhất là tỉnh 38 (-0,1818), 70 (-0,1667), 14
+(-0,1373) và 11 (-0,1238), đều giảm ở 3/3 seed. Vì mỗi tỉnh chỉ có khoảng
+27--40 mẫu trong test, đây là phân tích mô tả; chưa xem từng chênh lệch theo tỉnh
+là một kiểm định độc lập có ý nghĩa thống kê.
+
+### 18.3 Các cặp tỉnh nhầm lẫn
+
+Prosody loại bỏ hoặc giảm mạnh một số lỗi: 78→77 giảm 18 lượt, 94→83 giảm 17,
+76→86 giảm 15, 17→27 và 47→48 cùng giảm 13. Ngược lại, một số hướng nhầm tăng:
+38→73 tăng 18 lượt, 76→77 tăng 16, 69→84 và 43→78 cùng tăng 14.
+
+Hai chiều của cùng một cặp có thể thay đổi trái dấu. Ví dụ 73→38 giảm 10 nhưng
+38→73 tăng 18; 47→48 giảm 13 nhưng 48→47 tăng 12. Điều này cho thấy prosody có
+thể dịch chuyển ranh giới quyết định về một phía thay vì giải quyết hoàn toàn sự
+tương đồng giữa hai tỉnh.
+
+### 18.4 Calibration
+
+| Mô hình | ECE | NLL | Brier | Confidence trung bình |
+|---|---:|---:|---:|---:|
+| Acoustic-only | 0,2918 | 2,8241 | 0,8569 | 0,6864 |
+| Acoustic + prosody | **0,2453** | **2,4748** | **0,7820** | 0,6880 |
+
+Trung bình ba seed, prosody giảm ECE 0,0465, NLL 0,3493 và Brier 0,0749 trong
+khi confidence trung bình gần như không đổi. Tuy vậy, cải thiện calibration không
+đồng đều: seed 42 và 44 tốt hơn rõ, còn seed 43 có ECE tăng từ 0,2467 lên 0,2849
+và NLL tăng nhẹ từ 2,6097 lên 2,6396; riêng Brier seed 43 vẫn giảm.
+
+### 18.5 Kết luận H7
+
+Prosody tạo cải thiện tổng thể thực và có lợi ròng, đồng thời cải thiện calibration
+trung bình. Lợi ích tập trung mạnh ở một nhóm tỉnh thay vì phân bố đồng đều. Một
+số tỉnh và cặp nhầm bị suy giảm nhất quán, nên hướng tiếp theo cần phân tích đặc
+trưng âm học/prosody của các nhóm 17, 30, 22 so với 38, 70, 14 và kiểm tra cơ chế
+fusion hoặc calibration theo tỉnh. H7 không thay đổi kết luận H6, nhưng chỉ ra
+rằng một con số accuracy tổng hợp chưa mô tả hết hành vi của mô hình.

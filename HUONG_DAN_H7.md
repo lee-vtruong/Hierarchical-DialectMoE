@@ -121,3 +121,19 @@ Prediction H6 hiện không chứa thời lượng audio. Vì vậy H7 này chư
 duration để tránh suy diễn dữ liệu không tồn tại. Nếu kết quả H7 chính đã ổn định,
 có thể bổ sung một script chỉ đọc metadata/header audio và ghép thời lượng theo
 `filename` mà không cần chạy lại mô hình.
+
+## 7. Kết quả H7 đã thu được
+
+- Prosody sửa đúng 841 lượt và làm sai 549 lượt qua ba seed, lợi ròng 292.
+- Accuracy tăng ở 34/63 tỉnh, giảm ở 23 và không đổi ở 6.
+- 17 tỉnh cải thiện ở cả ba seed; 6 tỉnh suy giảm ở cả ba seed.
+- Tỉnh cải thiện lớn nhất: 17, 30, 22, 81 và 77.
+- Tỉnh suy giảm nhất quán lớn nhất: 38, 70, 14 và 11.
+- ECE trung bình giảm từ 0,2918 xuống 0,2453.
+- NLL trung bình giảm từ 2,8241 xuống 2,4748.
+- Brier trung bình giảm từ 0,8569 xuống 0,7820.
+- Calibration tốt hơn ở seed 42 và 44, nhưng ECE/NLL xấu hơn ở seed 43.
+
+Không diễn giải các chênh lệch từng tỉnh như kiểm định độc lập vì mỗi tỉnh chỉ có
+khoảng vài chục mẫu. Kết luận đáng tin cậy nhất vẫn là kết quả paired toàn bộ test
+ở H6; H7 dùng để định vị nhóm lỗi và tạo giả thuyết cho thí nghiệm tiếp theo.
