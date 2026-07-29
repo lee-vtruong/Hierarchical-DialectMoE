@@ -131,7 +131,9 @@ def main() -> None:
     use_amp = device.type == "cuda" and config["training"]["mixed_precision"] == "fp16"
     scaler = torch.amp.GradScaler("cuda", enabled=use_amp)
     start_epoch, best_loss, patience = 0, float("inf"), 0
-    best_region_accuracy, best_province_accuracy = 0.0, 0.0
+    # The first validation epoch must always create both accuracy checkpoints,
+    # including smoke tests where accuracy can legitimately be exactly zero.
+    best_region_accuracy, best_province_accuracy = -float("inf"), -float("inf")
 
     if args.resume:
         checkpoint = torch.load(args.resume, map_location="cpu", weights_only=False)

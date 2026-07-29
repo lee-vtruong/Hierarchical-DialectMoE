@@ -51,6 +51,14 @@ def load_vimd(config: dict[str, Any], max_samples: int | None = None) -> Dataset
         Audio(sampling_rate=data_config["sample_rate"], decode=False),
     )
 
+    region_values: list[str] = []
+    province_values: list[object] = []
+    for dataset in datasets.values():
+        region_values.extend(normalize_region(value) for value in dataset.unique(data_config["region_column"]))
+        province_values.extend(dataset.unique(data_config["province_column"]))
+
+    region_vocab = LabelVocabulary(region_values)
+    province_vocab = LabelVocabulary(province_values)
     if max_samples:
         datasets = DatasetDict(
             {
@@ -59,16 +67,10 @@ def load_vimd(config: dict[str, Any], max_samples: int | None = None) -> Dataset
             }
         )
 
-    region_values: list[str] = []
-    province_values: list[object] = []
-    for dataset in datasets.values():
-        region_values.extend(normalize_region(value) for value in dataset.unique(data_config["region_column"]))
-        province_values.extend(dataset.unique(data_config["province_column"]))
-
     return DatasetBundle(
         datasets=datasets,
-        region_vocab=LabelVocabulary(region_values),
-        province_vocab=LabelVocabulary(province_values),
+        region_vocab=region_vocab,
+        province_vocab=province_vocab,
     )
 
 

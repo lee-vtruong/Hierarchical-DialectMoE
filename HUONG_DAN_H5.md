@@ -86,6 +86,10 @@ outputs/h5_smoke/metrics_valid_best_province_accuracy.json
 outputs/h5_smoke/predictions_valid_best_province_accuracy.jsonl
 ```
 
+Vocabulary được dựng từ toàn bộ dataset trước khi cắt 32 mẫu, nên checkpoint
+smoke vẫn có đúng head 3 vùng và 63 tỉnh. `--max-samples` được áp dụng đồng nhất
+cho cả train và evaluate. Kết quả accuracy của smoke không có ý nghĩa nghiên cứu.
+
 ## 6. Kiểm tra GPU
 
 ```bash
@@ -216,4 +220,3 @@ outputs/h5_joint_vs_pitch_energy_valid_seed42.json
 
 Không chạy test. Sau khi phân tích seed 42, chỉ cấu hình được chọn trên validation
 mới được tạo thêm seed 43 và 44.
-

@@ -1201,3 +1201,21 @@ Mọi cấu hình H5 đều không sử dụng MoE và chỉ được chọn tr�
 chính là province macro-F1; province balanced accuracy và province accuracy là
 tiêu chí phụ. Paired speaker bootstrap/McNemar được thực hiện trên validation
 predictions trước khi quyết định cấu hình nào được lặp lại ở seed 43 và 44.
+
+### 16.1 Sửa lỗi smoke test H5
+
+Lần smoke test đầu tiên train với `--max-samples 32` nhưng evaluate không nhận
+tham số này. Vocabulary train cũng được dựng sau khi cắt dữ liệu nên checkpoint
+chỉ có head 1 vùng/1 tỉnh, trong khi evaluate toàn bộ dataset dựng head 3 vùng/63
+tỉnh và gây lỗi size mismatch.
+
+Đã sửa theo hai lớp:
+
+- Dựng region/province vocabulary từ toàn bộ dataset trước khi áp dụng
+  `max_samples`.
+- Truyền cùng `--max-samples` từ experiment runner sang evaluator.
+- Khởi tạo best accuracy bằng âm vô cùng để epoch đầu tiên luôn ghi đè checkpoint
+  cũ, kể cả khi smoke accuracy bằng 0.
+
+Checkpoint smoke lỗi phải được ghi đè bằng một lần chạy lại sau khi pull bản sửa.
+Lỗi chỉ thuộc pipeline smoke test, chưa ảnh hưởng bất kỳ full experiment H5 nào.

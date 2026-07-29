@@ -56,19 +56,19 @@ def main() -> None:
             + ", ".join(path.name for path in candidates)
         )
 
-    run(
-        [
-            sys.executable,
-            str(root / "scripts" / "evaluate.py"),
-            "--config",
-            str(config_path),
-            "--checkpoint",
-            str(checkpoint),
-            "--split",
-            args.split,
-        ],
-        root,
-    )
+    evaluate_command = [
+        sys.executable,
+        str(root / "scripts" / "evaluate.py"),
+        "--config",
+        str(config_path),
+        "--checkpoint",
+        str(checkpoint),
+        "--split",
+        args.split,
+    ]
+    if args.max_samples:
+        evaluate_command.extend(["--max-samples", str(args.max_samples)])
+    run(evaluate_command, root)
     artifact_names = [
         f"metrics_{args.split}",
         f"predictions_{args.split}",
