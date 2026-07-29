@@ -1279,3 +1279,69 @@ lặp lại:
 
 Cả hai phải chạy seed 43 và 44 trên validation để giữ paired comparison công
 bằng. Chưa sử dụng test set.
+
+### 16.6 Kết quả đa seed H5 trên validation
+
+| Cấu hình | Region accuracy | Province accuracy | Province balanced accuracy | Province macro-F1 |
+|---|---:|---:|---:|---:|
+| Acoustic + pitch/energy | 0,8954 ± 0,0022 | 0,4921 ± 0,0148 | 0,4893 ± 0,0159 | 0,4830 ± 0,0145 |
+| Acoustic + pitch/energy + spectral | 0,8968 ± 0,0014 | 0,4963 ± 0,0079 | 0,4930 ± 0,0082 | 0,4839 ± 0,0111 |
+| Chênh lệch mean fusion - baseline | +0,0014 | +0,0042 | +0,0037 | +0,0010 |
+
+Fusion có mean province accuracy cao hơn khoảng 0,42 điểm phần trăm, nhưng mean
+province macro-F1 chỉ cao hơn khoảng 0,10 điểm phần trăm. Mức tăng nhỏ hơn nhiều
+so với tín hiệu single-seed.
+
+### 16.7 Paired comparison qua ba seed
+
+#### Province accuracy
+
+| Seed | Fusion - baseline | Speaker-bootstrap CI 95% | P(fusion tốt hơn) | McNemar exact p |
+|---:|---:|---:|---:|---:|
+| 42 | +0,0211 | [-0,0026; 0,0448] | 0,9576 | 0,0605 |
+| 43 | +0,0132 | [-0,0096; 0,0366] | 0,8615 | 0,2443 |
+| 44 | -0,0216 | [-0,0438; 0,0011] | 0,0294 | 0,0473 |
+
+Hiệu ứng đổi dấu ở seed 44. Seed 42 và 43 không đạt ý nghĩa thống kê; seed 44
+cho bằng chứng McNemar rằng fusion làm giảm accuracy.
+
+#### Province macro-F1
+
+| Seed | Fusion - baseline | Speaker-bootstrap CI 95% |
+|---:|---:|---:|
+| 42 | +0,0203 | [-0,0035; 0,0439] |
+| 43 | +0,0098 | [-0,0130; 0,0339] |
+| 44 | -0,0272 | [-0,0487; -0,0043] |
+
+Tại seed 44, CI 95% hoàn toàn dưới 0. Đây là bằng chứng fusion spectral có thể
+làm giảm macro-F1 đáng kể tùy initialization.
+
+#### Region accuracy
+
+Fusion thay đổi region accuracy lần lượt `+0,0037`, `-0,0026` và `+0,0032`.
+Tất cả CI 95% đều chứa 0 và McNemar p-value đều lớn hơn 0,05. Không có bằng
+chứng cải thiện ổn định ở cấp vùng.
+
+### 16.8 Quyết định chính thức cho H5
+
+Theo cổng validation đã định trước:
+
+> Không khóa fusion spectral để chạy test.
+
+Lý do:
+
+- Hiệu ứng cấp tỉnh đổi dấu giữa các seed.
+- Mean macro-F1 chỉ tăng khoảng 0,10 điểm phần trăm.
+- Seed 44 giảm province accuracy khoảng 2,16 điểm phần trăm.
+- Seed 44 giảm balanced accuracy và macro-F1 với bootstrap CI hoàn toàn dưới 0.
+- Spectral-only đã giảm mạnh hiệu năng cấp tỉnh ở seed 42.
+
+Kết luận phù hợp là:
+
+> Các đặc trưng spectral/FFT thủ công chứa tín hiệu phương ngữ và có thể bổ sung
+> pitch/energy ở một số initialization, nhưng cách fusion hiện tại không tạo cải
+> thiện ổn định cho nhận diện 63 tỉnh.
+
+H5 được dừng mà không đánh giá test, tránh chọn cấu hình dựa gián tiếp trên test
+set. Baseline acoustic + prosody legacy không MoE vẫn là hệ thống tham chiếu
+chính đã có bằng chứng mạnh nhất.

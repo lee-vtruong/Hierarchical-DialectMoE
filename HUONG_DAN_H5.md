@@ -331,3 +331,30 @@ h5_joint_vs_pitch_energy_valid_seed44.json
 ```
 
 Chưa chạy test trước khi phân tích đủ ba seed validation.
+
+## 16. Quyết định cuối H5
+
+Kết quả ba seed:
+
+```text
+fusion - baseline:
+region accuracy             +0.0014
+province accuracy           +0.0042
+province balanced accuracy  +0.0037
+province macro-F1           +0.0010
+```
+
+Theo từng seed, province accuracy thay đổi:
+
+```text
+seed 42: +0.0211
+seed 43: +0.0132
+seed 44: -0.0216
+```
+
+Seed 44 có McNemar p bằng 0,0473; balanced accuracy và macro-F1 bootstrap CI 95%
+hoàn toàn dưới 0. Fusion vì vậy không ổn định và không vượt qua cổng validation.
+
+**Không chạy test cho H5.** Không chọn seed tốt nhất hoặc quay lại chỉnh fusion
+dựa trên các kết quả này. H5 được lưu như negative result: spectral có tín hiệu
+nhưng fusion thủ công hiện tại chưa tạo cải thiện lặp lại.
