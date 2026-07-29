@@ -13,7 +13,8 @@ from datasets import Audio, DatasetDict, load_dataset
 from transformers import AutoFeatureExtractor
 
 from .labels import LabelVocabulary, normalize_region
-from .prosody import PROSODY_FEATURE_NAMES, extract_prosody
+from .prosody import extract_prosody, prosody_feature_names
+from .spectral import SPECTRAL_FEATURE_NAMES, extract_spectral
 
 
 @dataclass
@@ -79,6 +80,8 @@ class DialectCollator:
         region_vocab: LabelVocabulary,
         province_vocab: LabelVocabulary,
         use_prosody: bool = True,
+        use_spectral: bool = False,
+        prosody_feature_set: str = "legacy",
     ):
         self.extractor = AutoFeatureExtractor.from_pretrained(backbone)
         self.audio_column = data_config["audio_column"]
@@ -92,6 +95,9 @@ class DialectCollator:
         self.region_vocab = region_vocab
         self.province_vocab = province_vocab
         self.use_prosody = use_prosody
+        self.use_spectral = use_spectral
+        self.prosody_feature_set = prosody_feature_set
+        self.feature_cache: dict[str, tuple[torch.Tensor, torch.Tensor]] = {}
 
     def _decode_audio(self, audio: dict[str, Any]) -> np.ndarray:
         source: io.BytesIO | str
@@ -127,18 +133,44 @@ class DialectCollator:
             return_attention_mask=True,
             return_tensors="pt",
         )
-        if self.use_prosody:
-            prosody = torch.stack(
-                [extract_prosody(torch.from_numpy(array), self.sample_rate) for array in arrays]
-            )
-        else:
-            prosody = torch.zeros(
-                len(arrays), len(PROSODY_FEATURE_NAMES), dtype=torch.float32
-            )
+        prosody_rows, spectral_rows = [], []
+        for example, array in zip(examples, arrays):
+            cache_key = str(example.get(self.filename_column, ""))
+            cached = self.feature_cache.get(cache_key) if cache_key else None
+            if cached is None:
+                waveform = torch.from_numpy(array)
+                prosody_row = (
+                    extract_prosody(
+                        waveform,
+                        self.sample_rate,
+                        feature_set=self.prosody_feature_set,
+                    )
+                    if self.use_prosody
+                    else torch.zeros(
+                        len(prosody_feature_names(self.prosody_feature_set)),
+                        dtype=torch.float32,
+                    )
+                )
+                spectral_row = (
+                    extract_spectral(waveform, self.sample_rate)
+                    if self.use_spectral
+                    else torch.zeros(
+                        len(SPECTRAL_FEATURE_NAMES), dtype=torch.float32
+                    )
+                )
+                if cache_key:
+                    self.feature_cache[cache_key] = (prosody_row, spectral_row)
+            else:
+                prosody_row, spectral_row = cached
+            prosody_rows.append(prosody_row)
+            spectral_rows.append(spectral_row)
+        prosody = torch.stack(prosody_rows)
+        spectral = torch.stack(spectral_rows)
         return {
             "input_values": processed.input_values,
             "attention_mask": processed.attention_mask,
             "prosody": prosody,
+            "spectral": spectral,
             "region_labels": torch.tensor(
                 [self.region_vocab.encode(normalize_region(x[self.region_column])) for x in examples],
                 dtype=torch.long,

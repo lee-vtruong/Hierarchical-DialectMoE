@@ -66,6 +66,8 @@ def main() -> None:
         bundle.region_vocab,
         bundle.province_vocab,
         use_prosody=bool(config["model"].get("use_prosody", True)),
+        use_spectral=bool(config["model"].get("use_spectral", False)),
+        prosody_feature_set=config["model"].get("prosody_feature_set", "legacy"),
     )
     loader = DataLoader(
         bundle.datasets[args.split],
@@ -73,6 +75,7 @@ def main() -> None:
         collate_fn=collator,
         num_workers=int(config["data"]["num_workers"]),
         pin_memory=True,
+        persistent_workers=int(config["data"]["num_workers"]) > 0,
     )
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = HierarchicalDialectMoE(
@@ -90,7 +93,12 @@ def main() -> None:
     with torch.no_grad():
         for batch in tqdm(loader, desc=f"Evaluating {args.split}"):
             batch = move_to_device(batch, device)
-            output = model(batch["input_values"], batch["attention_mask"], batch["prosody"])
+            output = model(
+                batch["input_values"],
+                batch["attention_mask"],
+                batch["prosody"],
+                batch["spectral"],
+            )
             region_targets = batch["region_labels"].cpu().tolist()
             province_targets = batch["province_labels"].cpu().tolist()
             region_probabilities = torch.softmax(output.region_logits, dim=-1).cpu()

@@ -34,7 +34,12 @@ def evaluate(model, loader, device, loss_config) -> dict[str, float]:
     totals = {"loss": 0.0, "region_correct": 0, "province_correct": 0, "samples": 0}
     for batch in tqdm(loader, desc="Validation", leave=False):
         batch = move_to_device(batch, device)
-        output = model(batch["input_values"], batch["attention_mask"], batch["prosody"])
+        output = model(
+            batch["input_values"],
+            batch["attention_mask"],
+            batch["prosody"],
+            batch["spectral"],
+        )
         loss, _ = hierarchical_loss(
             output, batch["region_labels"], batch["province_labels"], loss_config
         )
@@ -78,6 +83,8 @@ def main() -> None:
         bundle.region_vocab,
         bundle.province_vocab,
         use_prosody=bool(config["model"].get("use_prosody", True)),
+        use_spectral=bool(config["model"].get("use_spectral", False)),
+        prosody_feature_set=config["model"].get("prosody_feature_set", "legacy"),
     )
     train_loader = DataLoader(
         bundle.datasets["train"],
@@ -86,6 +93,7 @@ def main() -> None:
         collate_fn=collator,
         num_workers=int(config["data"]["num_workers"]),
         pin_memory=True,
+        persistent_workers=int(config["data"]["num_workers"]) > 0,
     )
     validation_split = "valid" if "valid" in bundle.datasets else "validation"
     validation_loader = DataLoader(
@@ -95,6 +103,7 @@ def main() -> None:
         collate_fn=collator,
         num_workers=int(config["data"]["num_workers"]),
         pin_memory=True,
+        persistent_workers=int(config["data"]["num_workers"]) > 0,
     )
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -145,7 +154,12 @@ def main() -> None:
         for step, batch in enumerate(progress):
             batch = move_to_device(batch, device)
             with torch.autocast(device_type=device.type, dtype=torch.float16, enabled=use_amp):
-                output = model(batch["input_values"], batch["attention_mask"], batch["prosody"])
+                output = model(
+                    batch["input_values"],
+                    batch["attention_mask"],
+                    batch["prosody"],
+                    batch["spectral"],
+                )
                 loss, parts = hierarchical_loss(
                     output,
                     batch["region_labels"],

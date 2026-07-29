@@ -1,0 +1,6 @@
+extends: h5_acoustic_pitch_energy_spectral.yaml
+
+training:
+  output_dir: outputs/h5_smoke
+  epochs: 1
+  early_stopping_patience: 1

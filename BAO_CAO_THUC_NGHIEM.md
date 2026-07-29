@@ -1175,3 +1175,29 @@ tham chiếu chính.
 
 Hướng thực nghiệm tiếp theo chuyển sang đặc trưng spectral/FFT, được đánh giá
 validation-only trước khi khóa bất kỳ cấu hình mới nào.
+
+## 16. Thiết kế H5 - Đặc trưng spectral/FFT
+
+Trong quá trình chuẩn bị H5, phát hiện vector `prosody` legacy 12 chiều đã chứa
+spectral centroid, bandwidth và roll-off. Vì vậy kết luận H1 cần được diễn đạt
+chính xác là nhóm đặc trưng prosody kết hợp một số thống kê phổ cơ bản có ích cho
+classification; H1 chưa tách riêng hoàn toàn prosody khỏi spectral.
+
+Để tạo ablation sạch, H5 bổ sung:
+
+- Bộ `pitch_energy` 9 chiều không chứa centroid, bandwidth hay roll-off.
+- Bộ spectral 24 chiều trích từ FFT/STFT.
+- Chế độ fusion acoustic, pitch/energy và spectral độc lập.
+- Baseline handcrafted MLP không sử dụng pretrained backbone.
+
+Bốn cấu hình seed 42 được lên kế hoạch:
+
+1. Acoustic + pitch/energy.
+2. Acoustic + spectral.
+3. Acoustic + pitch/energy + spectral.
+4. Handcrafted pitch/energy + spectral, không backbone.
+
+Mọi cấu hình H5 đều không sử dụng MoE và chỉ được chọn trên validation. Tiêu chí
+chính là province macro-F1; province balanced accuracy và province accuracy là
+tiêu chí phụ. Paired speaker bootstrap/McNemar được thực hiện trên validation
+predictions trước khi quyết định cấu hình nào được lặp lại ở seed 43 và 44.

@@ -1,0 +1,20 @@
+extends: ../vimd_moe.yaml
+
+seed: 42
+
+model:
+  use_acoustic: false
+  use_prosody: true
+  use_spectral: true
+  prosody_feature_set: pitch_energy
+  spectral_dim: 128
+  use_hierarchical_router: false
+  use_moe: false
+
+training:
+  output_dir: outputs/h5_handcrafted_pitch_energy_spectral_seed42
+  head_learning_rate: 0.0002
+
+loss:
+  router_weight: 0.0
+  load_balance_weight: 0.0

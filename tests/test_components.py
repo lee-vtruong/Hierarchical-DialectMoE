@@ -3,6 +3,8 @@ import torch
 from dialect_moe.losses import hierarchical_loss
 from dialect_moe.model import DialectMoEOutput, SparseMixtureOfExperts
 from dialect_moe.prosody import PROSODY_FEATURE_NAMES, extract_prosody
+from dialect_moe.prosody import PITCH_ENERGY_FEATURE_NAMES
+from dialect_moe.spectral import SPECTRAL_FEATURE_NAMES, extract_spectral
 
 
 def test_prosody_shape_and_finite():
@@ -12,6 +14,23 @@ def test_prosody_shape_and_finite():
     features = extract_prosody(waveform, sample_rate)
     assert features.shape == (len(PROSODY_FEATURE_NAMES),)
     assert torch.isfinite(features).all()
+    compact = extract_prosody(waveform, sample_rate, feature_set="pitch_energy")
+    assert compact.shape == (len(PITCH_ENERGY_FEATURE_NAMES),)
+    assert torch.isfinite(compact).all()
+
+
+def test_spectral_shape_finite_and_volume_robust():
+    sample_rate = 16000
+    time = torch.arange(sample_rate, dtype=torch.float32) / sample_rate
+    waveform = (
+        0.1 * torch.sin(2 * torch.pi * 180 * time)
+        + 0.03 * torch.sin(2 * torch.pi * 1200 * time)
+    )
+    features = extract_spectral(waveform, sample_rate)
+    louder_features = extract_spectral(2 * waveform, sample_rate)
+    assert features.shape == (len(SPECTRAL_FEATURE_NAMES),)
+    assert torch.isfinite(features).all()
+    assert torch.allclose(features, louder_features, atol=1e-4, rtol=1e-4)
 
 
 def test_sparse_moe_shape_and_gradient():

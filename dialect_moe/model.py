@@ -6,7 +6,8 @@ import torch
 from torch import nn
 from transformers import AutoModel
 
-from .prosody import PROSODY_FEATURE_NAMES
+from .prosody import prosody_feature_names
+from .spectral import SPECTRAL_FEATURE_NAMES
 
 
 class MLP(nn.Module):
@@ -92,45 +93,73 @@ class DialectMoEOutput:
 class HierarchicalDialectMoE(nn.Module):
     def __init__(self, model_config: dict, num_regions: int, num_provinces: int):
         super().__init__()
-        # Force the non-pickle checkpoint format. Recent Transformers versions
-        # reject torch.load on PyTorch < 2.6 because of CVE-2025-32434.
-        self.backbone = AutoModel.from_pretrained(
-            model_config["backbone"],
-            use_safetensors=True,
-        )
         self.use_acoustic = bool(model_config.get("use_acoustic", True))
         self.use_prosody = bool(model_config.get("use_prosody", True))
+        self.use_spectral = bool(model_config.get("use_spectral", False))
+        self.prosody_feature_set = model_config.get(
+            "prosody_feature_set", "legacy"
+        )
+        # Force the non-pickle checkpoint format. Recent Transformers versions
+        # reject torch.load on PyTorch < 2.6 because of CVE-2025-32434.
+        self.backbone = (
+            AutoModel.from_pretrained(
+                model_config["backbone"],
+                use_safetensors=True,
+            )
+            if self.use_acoustic
+            else None
+        )
         self.use_hierarchical_router = bool(
             model_config.get("use_hierarchical_router", True)
         )
         self.use_moe = bool(model_config.get("use_moe", True))
         self.router_input = model_config.get("router_input", "acoustic_prosody")
-        backbone_dim = int(self.backbone.config.hidden_size)
+        backbone_dim = (
+            int(self.backbone.config.hidden_size)
+            if self.backbone is not None
+            else int(model_config.get("acoustic_dim", 256))
+        )
 
-        if model_config.get("gradient_checkpointing", False):
+        if self.backbone is not None and model_config.get("gradient_checkpointing", False):
             self.backbone.gradient_checkpointing_enable()
-        if model_config.get("freeze_feature_encoder", True):
+        if self.backbone is not None and model_config.get("freeze_feature_encoder", True):
             freeze = getattr(self.backbone, "freeze_feature_encoder", None)
             if freeze is not None:
                 freeze()
-        if model_config.get("freeze_backbone", False):
+        if self.backbone is not None and model_config.get("freeze_backbone", False):
             self.backbone.requires_grad_(False)
 
         dropout = float(model_config["dropout"])
         acoustic_dim = int(model_config["acoustic_dim"])
         prosody_dim = int(model_config["prosody_dim"])
+        spectral_dim = int(model_config.get("spectral_dim", 128))
         self.acoustic_dim = acoustic_dim
         self.prosody_dim = prosody_dim
+        self.spectral_dim = spectral_dim
         fusion_dim = int(model_config["fusion_dim"])
         num_experts = int(model_config["num_experts"])
 
         self.acoustic_projection = MLP(backbone_dim, acoustic_dim, acoustic_dim, dropout)
         self.prosody_encoder = MLP(
-            len(PROSODY_FEATURE_NAMES), prosody_dim, prosody_dim, dropout
+            len(prosody_feature_names(self.prosody_feature_set)),
+            prosody_dim,
+            prosody_dim,
+            dropout,
         )
-        self.fusion_projection = nn.Linear(acoustic_dim + prosody_dim, fusion_dim)
+        if self.use_spectral:
+            self.spectral_encoder = MLP(
+                len(SPECTRAL_FEATURE_NAMES), spectral_dim, spectral_dim, dropout
+            )
+        joined_dim = (
+            (acoustic_dim if self.use_acoustic else 0)
+            + (prosody_dim if self.use_prosody else 0)
+            + (spectral_dim if self.use_spectral else 0)
+        )
+        if joined_dim == 0:
+            raise ValueError("At least one of acoustic, prosody, or spectral must be enabled")
+        self.fusion_projection = nn.Linear(joined_dim, fusion_dim)
         self.fusion_gate = nn.Sequential(
-            nn.Linear(acoustic_dim + prosody_dim, fusion_dim),
+            nn.Linear(joined_dim, fusion_dim),
             nn.Sigmoid(),
         )
 
@@ -176,22 +205,42 @@ class HierarchicalDialectMoE(nn.Module):
         input_values: torch.Tensor,
         attention_mask: torch.Tensor | None,
         prosody: torch.Tensor,
+        spectral: torch.Tensor | None = None,
     ) -> DialectMoEOutput:
-        encoded = self.backbone(
-            input_values=input_values,
-            attention_mask=attention_mask,
-        ).last_hidden_state
         if self.use_acoustic:
+            if self.backbone is None:
+                raise RuntimeError("Acoustic input is enabled but backbone is missing")
+            encoded = self.backbone(
+                input_values=input_values,
+                attention_mask=attention_mask,
+            ).last_hidden_state
             acoustic = self.acoustic_projection(
                 self._masked_mean(encoded, attention_mask)
             )
         else:
-            acoustic = encoded.new_zeros(encoded.shape[0], self.acoustic_dim)
+            acoustic = prosody.new_zeros(prosody.shape[0], self.acoustic_dim)
         if self.use_prosody:
             prosodic = self.prosody_encoder(prosody)
         else:
             prosodic = acoustic.new_zeros(acoustic.shape[0], self.prosody_dim)
-        joined = torch.cat([acoustic, prosodic], dim=-1)
+        if spectral is None:
+            spectral = prosody.new_zeros(
+                prosody.shape[0], len(SPECTRAL_FEATURE_NAMES)
+            )
+        if self.use_spectral:
+            spectral_features = self.spectral_encoder(spectral)
+        else:
+            spectral_features = acoustic.new_zeros(
+                acoustic.shape[0], self.spectral_dim
+            )
+        joined_parts = []
+        if self.use_acoustic:
+            joined_parts.append(acoustic)
+        if self.use_prosody:
+            joined_parts.append(prosodic)
+        if self.use_spectral:
+            joined_parts.append(spectral_features)
+        joined = torch.cat(joined_parts, dim=-1)
         fused = self.fusion_projection(joined) * self.fusion_gate(joined)
 
         region_logits = self.region_head(fused)

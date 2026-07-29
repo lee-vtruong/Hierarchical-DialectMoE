@@ -20,6 +20,28 @@ PROSODY_FEATURE_NAMES = [
     "voiced_fraction",
 ]
 
+PITCH_ENERGY_FEATURE_NAMES = [
+    "log_duration",
+    "rms_mean",
+    "rms_std",
+    "zcr",
+    "f0_mean",
+    "f0_std",
+    "f0_min",
+    "f0_max",
+    "voiced_fraction",
+]
+
+_PITCH_ENERGY_INDICES = [0, 1, 2, 3, 7, 8, 9, 10, 11]
+
+
+def prosody_feature_names(feature_set: str = "legacy") -> list[str]:
+    if feature_set == "legacy":
+        return PROSODY_FEATURE_NAMES
+    if feature_set == "pitch_energy":
+        return PITCH_ENERGY_FEATURE_NAMES
+    raise ValueError("prosody_feature_set must be one of: legacy, pitch_energy")
+
 
 def _safe_standardize(features: torch.Tensor) -> torch.Tensor:
     scales = features.new_tensor(
@@ -51,11 +73,13 @@ def _pitch_autocorrelation(
 
 
 @torch.no_grad()
-def extract_prosody(waveform: torch.Tensor, sample_rate: int) -> torch.Tensor:
+def extract_prosody(
+    waveform: torch.Tensor, sample_rate: int, feature_set: str = "legacy"
+) -> torch.Tensor:
     """Extract a compact, deterministic acoustic/prosodic vector on CPU."""
     waveform = waveform.float().flatten()
     if waveform.numel() < 2:
-        return torch.zeros(len(PROSODY_FEATURE_NAMES), dtype=torch.float32)
+        return torch.zeros(len(prosody_feature_names(feature_set)), dtype=torch.float32)
 
     waveform = waveform - waveform.mean()
     duration = waveform.numel() / sample_rate
@@ -111,4 +135,9 @@ def extract_prosody(waveform: torch.Tensor, sample_rate: int) -> torch.Tensor:
             waveform.new_tensor(voiced.numel() / max(pitch_frame_count, 1)),
         ]
     )
-    return _safe_standardize(raw).cpu()
+    standardized = _safe_standardize(raw)
+    if feature_set == "pitch_energy":
+        standardized = standardized[_PITCH_ENERGY_INDICES]
+    elif feature_set != "legacy":
+        raise ValueError("prosody_feature_set must be one of: legacy, pitch_energy")
+    return standardized.cpu()
