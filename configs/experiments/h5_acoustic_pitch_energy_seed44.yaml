@@ -1,0 +1,6 @@
+extends: h5_acoustic_pitch_energy.yaml
+
+seed: 44
+
+training:
+  output_dir: outputs/h5_acoustic_pitch_energy_seed44

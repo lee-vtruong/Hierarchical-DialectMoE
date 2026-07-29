@@ -1219,3 +1219,63 @@ tỉnh và gây lỗi size mismatch.
 
 Checkpoint smoke lỗi phải được ghi đè bằng một lần chạy lại sau khi pull bản sửa.
 Lỗi chỉ thuộc pipeline smoke test, chưa ảnh hưởng bất kỳ full experiment H5 nào.
+
+### 16.2 Kết quả H5 seed 42 trên validation
+
+| Cấu hình | Region accuracy | Province accuracy | Province balanced accuracy | Province macro-F1 |
+|---|---:|---:|---:|---:|
+| Acoustic + pitch/energy | 0,8937 | 0,4811 | 0,4772 | 0,4696 |
+| Acoustic + spectral | **0,8984** | 0,4389 | 0,4333 | 0,4293 |
+| Acoustic + pitch/energy + spectral | 0,8974 | **0,5021** | **0,4986** | **0,4899** |
+| Handcrafted pitch/energy + spectral | 0,5958 | 0,2000 | 0,1974 | 0,1710 |
+
+Spectral một mình tăng nhẹ metric vùng nhưng làm giảm rõ rệt metric cấp tỉnh.
+So với acoustic + pitch/energy:
+
+- Province accuracy giảm 0,0421.
+- Province balanced accuracy giảm 0,0440.
+- Province macro-F1 giảm 0,0403.
+- Bootstrap CI 95% của cả ba metric cấp tỉnh đều hoàn toàn dưới 0.
+- McNemar exact p-value của province accuracy bằng 0,00045.
+
+Do đó spectral không thay thế được pitch/energy cho phân loại 63 tỉnh.
+
+### 16.3 Spectral bổ sung cho pitch/energy
+
+Fusion acoustic + pitch/energy + spectral so với acoustic + pitch/energy:
+
+| Metric | Chênh lệch | Speaker-bootstrap CI 95% | P(fusion tốt hơn) |
+|---|---:|---:|---:|
+| Province accuracy | +0,0211 | [-0,0026; 0,0448] | 0,9576 |
+| Province balanced accuracy | +0,0214 | [-0,0015; 0,0442] | 0,9658 |
+| Province macro-F1 | +0,0203 | [-0,0035; 0,0439] | 0,9535 |
+
+McNemar exact p-value của province accuracy là 0,0605. Tín hiệu tăng khoảng 2,0-
+2,1 điểm phần trăm khá lớn về thực tiễn nhưng chưa đạt ngưỡng 0,05 ở seed 42 và
+CI còn hơi chứa 0. Vì vậy kết quả đủ điều kiện xác nhận đa seed nhưng chưa đủ để
+tuyên bố H5 được hỗ trợ.
+
+### 16.4 Baseline handcrafted
+
+Không có pretrained backbone, handcrafted MLP đạt:
+
+- Region accuracy 0,5958.
+- Province accuracy 0,2000.
+- Province macro-F1 0,1710.
+
+Mặc dù thấp hơn Wav2Vec2 rõ rệt, kết quả cao hơn nhiều so với random chance
+(`1/3` cho vùng và `1/63` cho tỉnh), xác nhận pitch/energy và spectral chứa tín
+hiệu phương ngữ độc lập. Tuy nhiên handcrafted không đủ để thay thế learned
+acoustic representation.
+
+### 16.5 Quyết định đa seed
+
+Không chạy lại spectral-only hoặc handcrafted ở seed 43/44 vì hai cấu hình này
+không cạnh tranh với baseline theo tiêu chí cấp tỉnh. Chỉ hai cấu hình sau được
+lặp lại:
+
+1. Acoustic + pitch/energy làm baseline sạch.
+2. Acoustic + pitch/energy + spectral làm candidate.
+
+Cả hai phải chạy seed 43 và 44 trên validation để giữ paired comparison công
+bằng. Chưa sử dụng test set.

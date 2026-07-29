@@ -220,3 +220,114 @@ outputs/h5_joint_vs_pitch_energy_valid_seed42.json
 
 Không chạy test. Sau khi phân tích seed 42, chỉ cấu hình được chọn trên validation
 mới được tạo thêm seed 43 và 44.
+
+## 13. Kết quả seed 42 và cấu hình được chọn
+
+Fusion acoustic + pitch/energy + spectral tăng so với baseline:
+
+```text
+province accuracy          +0.0211
+province balanced accuracy +0.0214
+province macro-F1          +0.0203
+```
+
+Tuy nhiên CI 95% vẫn hơi chứa 0 và McNemar p bằng 0,0605. Vì vậy fusion được chọn
+để xác nhận đa seed, chưa được xem là kết luận cuối.
+
+Spectral-only giảm province accuracy 0,0421 với bằng chứng thống kê rõ ràng nên
+không chạy thêm seed. Handcrafted cũng không được chạy thêm seed.
+
+## 14. Chạy baseline và fusion ở seed 43–44
+
+Các config:
+
+```text
+h5_acoustic_pitch_energy_seed43.yaml
+h5_acoustic_pitch_energy_seed44.yaml
+h5_acoustic_pitch_energy_spectral_seed43.yaml
+h5_acoustic_pitch_energy_spectral_seed44.yaml
+```
+
+Kiểm tra GPU:
+
+```bash
+nvidia-smi --query-gpu=index,memory.used,memory.total,utilization.gpu \
+  --format=csv
+```
+
+Ví dụ với GPU 1, 2, 6 và 7 trống:
+
+```bash
+CONFIGS=(
+  h5_acoustic_pitch_energy_seed43
+  h5_acoustic_pitch_energy_seed44
+  h5_acoustic_pitch_energy_spectral_seed43
+  h5_acoustic_pitch_energy_spectral_seed44
+)
+
+GPUS=(1 2 6 7)
+
+for i in "${!CONFIGS[@]}"; do
+  name="${CONFIGS[$i]}"
+  gpu="${GPUS[$i]}"
+
+  nohup env \
+    CUDA_VISIBLE_DEVICES="$gpu" \
+    PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True \
+    .venv/bin/python -u scripts/run_experiment.py \
+    --config "configs/experiments/${name}.yaml" \
+    --split valid \
+    > "logs/${name}.log" 2>&1 &
+
+  echo $! > "logs/${name}.pid"
+done
+```
+
+Thay GPU theo trạng thái server thực tế.
+
+## 15. Tổng hợp đa seed
+
+Baseline:
+
+```bash
+python scripts/summarize_experiments.py \
+  --outputs outputs \
+  --pattern 'h5_acoustic_pitch_energy_seed*/metrics_valid_best_province_accuracy.json' \
+  --destination outputs/h5_pitch_energy_multiseed_valid.csv \
+  --aggregate-destination outputs/h5_pitch_energy_multiseed_valid_aggregate.csv
+```
+
+Fusion:
+
+```bash
+python scripts/summarize_experiments.py \
+  --outputs outputs \
+  --pattern 'h5_acoustic_pitch_energy_spectral_seed*/metrics_valid_best_province_accuracy.json' \
+  --destination outputs/h5_joint_multiseed_valid.csv \
+  --aggregate-destination outputs/h5_joint_multiseed_valid_aggregate.csv
+```
+
+Paired comparison:
+
+```bash
+for seed in 42 43 44; do
+  python scripts/compare_predictions.py \
+    --baseline "outputs/h5_acoustic_pitch_energy_seed${seed}/predictions_valid_best_province_accuracy.jsonl" \
+    --candidate "outputs/h5_acoustic_pitch_energy_spectral_seed${seed}/predictions_valid_best_province_accuracy.jsonl" \
+    --output "outputs/h5_joint_vs_pitch_energy_valid_seed${seed}.json" \
+    --bootstrap-iterations 10000 \
+    --seed "$seed"
+done
+```
+
+File cần gửi:
+
+```text
+h5_pitch_energy_multiseed_valid_aggregate.csv
+h5_joint_multiseed_valid_aggregate.csv
+h5_joint_vs_pitch_energy_valid_seed42.json
+h5_joint_vs_pitch_energy_valid_seed43.json
+h5_joint_vs_pitch_energy_valid_seed44.json
+```
+
+Chưa chạy test trước khi phân tích đủ ba seed validation.
