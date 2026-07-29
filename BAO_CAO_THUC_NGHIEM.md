@@ -1462,3 +1462,43 @@ legacy.
 
 Không chuyển đổi hoặc sửa checkpoint; architecture tương thích được phục hồi từ
 config.
+
+### 17.6 Kết quả H6 trên repaired test
+
+Tập test sau minimal repair có 2.023 utterance và 1.342 speaker. Sáu checkpoint đã
+khóa của H1 được đánh giá lại, không huấn luyện lại và không chọn lại
+hyperparameter.
+
+| Mô hình | Region accuracy | Province accuracy | Province balanced accuracy | Province macro-F1 |
+|---|---:|---:|---:|---:|
+| Acoustic-only | 0,8950 ± 0,0020 | 0,3946 ± 0,0148 | 0,3975 ± 0,0163 | 0,3911 ± 0,0131 |
+| Acoustic + prosody | **0,9015 ± 0,0030** | **0,4427 ± 0,0087** | **0,4469 ± 0,0090** | **0,4368 ± 0,0082** |
+| Chênh lệch | +0,0064 | **+0,0481** | **+0,0494** | **+0,0457** |
+
+Prosody cải thiện province accuracy trung bình 4,81 điểm phần trăm, province
+balanced accuracy 4,94 điểm phần trăm và province macro-F1 4,57 điểm phần trăm.
+
+### 17.7 Kiểm định paired theo seed
+
+| Seed | Province accuracy acoustic | Province accuracy + prosody | Chênh lệch | Bootstrap 95% CI | McNemar p |
+|---:|---:|---:|---:|---:|---:|
+| 42 | 0,3786 | 0,4330 | +0,0544 | [0,0304; 0,0783] | 6,52e-7 |
+| 43 | 0,4078 | 0,4454 | +0,0376 | [0,0152; 0,0600] | 3,18e-4 |
+| 44 | 0,3974 | 0,4498 | +0,0524 | [0,0290; 0,0762] | 1,16e-6 |
+
+Cả ba seed đều có confidence interval không chứa 0 và McNemar p nhỏ hơn ngưỡng
+Bonferroni 0,05/3 = 0,0167. Vì vậy cải thiện nhận dạng cấp tỉnh có ý nghĩa thống kê
+và lặp lại ổn định giữa các seed. Trái lại, confidence interval của region accuracy
+đều chứa 0; chưa có đủ bằng chứng để kết luận prosody cải thiện cấp vùng.
+
+### 17.8 Ảnh hưởng của speaker overlap và kết luận H6
+
+So với test gốc, thay đổi tuyệt đối của province accuracy chỉ là +0,026 điểm phần
+trăm cho acoustic-only và +0,016 điểm phần trăm cho acoustic + prosody. Chênh lệch
+prosody so với acoustic giảm khoảng 0,009 điểm phần trăm; province macro-F1 giảm
+khoảng 0,025 điểm phần trăm. Đây là mức không đáng kể.
+
+**Kết luận H6:** speaker overlap giữa validation và test chỉ gồm hai speaker và ba
+test utterance, không làm thay đổi kết luận chính. H1 được xác nhận trên repaired
+speaker-disjoint test: prosody cải thiện rõ rệt và có ý nghĩa thống kê cho nhận
+dạng cấp tỉnh, nhưng chưa tạo cải thiện có ý nghĩa ở cấp vùng.

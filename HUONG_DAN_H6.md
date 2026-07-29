@@ -325,3 +325,29 @@ done
 - Loader từ chối manifest thiếu row, trùng row, sai index hoặc speaker xuất hiện
   ở nhiều split.
 - Test mới không được dùng để chọn hyperparameter.
+
+## 13. Kết quả cuối cùng
+
+H6 đã hoàn tất trên repaired test gồm 2.023 utterance và 1.342 speaker:
+
+| Mô hình | Province accuracy | Province balanced accuracy | Province macro-F1 |
+|---|---:|---:|---:|
+| Acoustic-only | 0,3946 ± 0,0148 | 0,3975 ± 0,0163 | 0,3911 ± 0,0131 |
+| Acoustic + prosody | **0,4427 ± 0,0087** | **0,4469 ± 0,0090** | **0,4368 ± 0,0082** |
+| Chênh lệch | **+0,0481** | **+0,0494** | **+0,0457** |
+
+Kiểm định paired cho province accuracy có McNemar p lần lượt là 6,52e-7,
+3,18e-4 và 1,16e-6 ở seed 42, 43 và 44. Cả ba đều qua ngưỡng Bonferroni
+0,0167. Kết quả cấp vùng chưa có ý nghĩa thống kê.
+
+Speaker-overlap repair chỉ làm thay đổi chênh lệch province accuracy khoảng
+-0,009 điểm phần trăm so với test gốc. Do đó H1 được xác nhận và ảnh hưởng của
+leakage đã phát hiện là không đáng kể.
+
+Các artifact cần lưu:
+
+- `h6_acoustic_repaired_test_aggregate.csv`
+- `h6_prosody_repaired_test_aggregate.csv`
+- `h6_prosody_vs_acoustic_repaired_test_seed42.json`
+- `h6_prosody_vs_acoustic_repaired_test_seed43.json`
+- `h6_prosody_vs_acoustic_repaired_test_seed44.json`
