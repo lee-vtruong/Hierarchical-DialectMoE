@@ -1013,3 +1013,43 @@ Quy tắc chọn là province macro-F1 validation cao nhất trong các run khô
 collapse; province balanced accuracy và province accuracy được dùng để phá hòa.
 Sau sweep, cấu hình được chọn phải được lặp lại trên seed 42/43/44 ở validation
 trước khi khóa và đánh giá test cuối.
+
+### 15.1 Kết quả sweep seed 42
+
+| Load balance | Region acc. | Province acc. | Province balanced acc. | Province macro-F1 | Soft entropy chuẩn hóa | Top-1 entropy chuẩn hóa | Expert lớn nhất | Region NMI | Province NMI |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 0 | 0,8921 | 0,4895 | 0,4822 | 0,4749 | 0,9587 | 0,7424 | 0,4647 | **0,3759** | **0,2141** |
+| 0,0001 | 0,8937 | 0,4884 | 0,4830 | 0,4752 | 1,0000 | 0,7912 | 0,4937 | 0,2482 | 0,1609 |
+| **0,001** | 0,8963 | 0,4979 | 0,4928 | **0,4867** | 1,0000 | 0,7124 | 0,6432 | 0,2285 | 0,1566 |
+| 0,005 | 0,8937 | **0,4989** | 0,4932 | 0,4857 | 1,0000 | 0,8363 | 0,5368 | 0,2372 | 0,1702 |
+| 0,01 | **0,9021** | 0,4984 | **0,4937** | 0,4835 | 1,0000 | 0,5205 | 0,7468 | 0,2771 | 0,1426 |
+| 0,02 | 0,8884 | 0,4879 | 0,4821 | 0,4668 | 1,0000 | **0,9976** | **0,2732** | 0,2021 | 0,1619 |
+
+Không run nào vượt ngưỡng collapse 90%. Cấu hình `0,001` được chọn vì đạt
+province macro-F1 validation cao nhất (`0,4867`) theo quy tắc đã định trước.
+`0,005` có province accuracy cao hơn khoảng 0,11 điểm phần trăm nhưng macro-F1
+thấp hơn khoảng 0,10 điểm phần trăm; vì vậy không thay đổi tiêu chí sau khi xem
+kết quả.
+
+### 15.2 Diễn giải routing
+
+Khi bỏ load-balancing (`weight = 0`), soft entropy giảm xuống 0,9587 và NMI tăng
+cao nhất, cho thấy router có tín hiệu phân hóa rõ hơn. Tuy nhiên province
+macro-F1 chỉ đạt 0,4749, thấp hơn cấu hình được chọn khoảng 1,18 điểm phần trăm.
+
+Với mọi hệ số khác 0, soft probability vẫn gần uniform tuyệt đối và số expert
+hiệu dụng gần 4. Dù vậy, top-1 assignment không uniform vì các chênh lệch xác suất
+rất nhỏ vẫn thay đổi expert đứng đầu. Vì thế cần phân biệt:
+
+- Soft probabilities gần uniform không chứng minh router tự tin.
+- Top-1 assignment mất cân bằng không đồng nghĩa với soft router đã chuyên môn
+  hóa mạnh.
+- NMI cho thấy association có tồn tại, nhưng chưa chứng minh quan hệ nhân quả hay
+  lợi ích lặp lại qua seed.
+
+### 15.3 Cấu hình được chọn cho xác nhận đa seed
+
+Hệ số `load_balance_weight = 0,001` được khóa cho giai đoạn xác nhận validation
+trên seed 43 và 44. Giai đoạn này vẫn không sử dụng test set. Sau khi có ba seed,
+cần kiểm tra đồng thời province macro-F1, variance, collapse, entropy và NMI trước
+khi quyết định có đưa cấu hình vào đánh giá test cuối hay không.

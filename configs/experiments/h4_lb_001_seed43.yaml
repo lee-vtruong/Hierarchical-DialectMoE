@@ -1,0 +1,6 @@
+extends: h4_lb_001.yaml
+
+seed: 43
+
+training:
+  output_dir: outputs/h4_lb_001_seed43

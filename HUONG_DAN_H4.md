@@ -192,3 +192,117 @@ Chưa chạy test. Gửi hai file này để tạo ba config seed 42/43/44 cho h
 chọn. Sau khi kiểm tra tính lặp lại trên validation, mới khóa cấu hình và thực
 hiện một lần đánh giá test cuối.
 
+## 9. Kết quả sweep seed 42
+
+Theo quy tắc đã định trước, cấu hình được chọn là:
+
+```text
+load_balance_weight = 0.001
+```
+
+Kết quả validation:
+
+```text
+province accuracy          = 0.4979
+province balanced accuracy = 0.4928
+province macro-F1          = 0.4867
+```
+
+Cấu hình không collapse, cả bốn expert đều được sử dụng. Tuy nhiên soft router
+vẫn gần uniform (`normalized entropy = 0.999994`). Top-1 assignment có phân hóa:
+expert lớn nhất nhận khoảng 64,32%, region–expert NMI bằng 0,2285 và
+province–expert NMI bằng 0,1566.
+
+`0.005` đạt province accuracy nhỉnh hơn `0.001` khoảng 0,0011 nhưng province
+macro-F1 thấp hơn khoảng 0,0010. Vì tiêu chí chính đã khóa là province macro-F1,
+không đổi sang `0.005` sau khi xem kết quả.
+
+## 10. Xác nhận cấu hình được chọn trên seed 43 và 44
+
+Hai config:
+
+```text
+configs/experiments/h4_lb_001_seed43.yaml
+configs/experiments/h4_lb_001_seed44.yaml
+```
+
+Kiểm tra GPU:
+
+```bash
+nvidia-smi --query-gpu=index,memory.used,memory.total,utilization.gpu \
+  --format=csv
+```
+
+Giả sử GPU 6 và 7 đang trống:
+
+```bash
+nohup env \
+  CUDA_VISIBLE_DEVICES=6 \
+  PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True \
+  .venv/bin/python -u scripts/run_experiment.py \
+  --config configs/experiments/h4_lb_001_seed43.yaml \
+  --split valid \
+  > logs/h4_lb_001_seed43.log 2>&1 &
+
+echo $! > logs/h4_lb_001_seed43.pid
+```
+
+```bash
+nohup env \
+  CUDA_VISIBLE_DEVICES=7 \
+  PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True \
+  .venv/bin/python -u scripts/run_experiment.py \
+  --config configs/experiments/h4_lb_001_seed44.yaml \
+  --split valid \
+  > logs/h4_lb_001_seed44.log 2>&1 &
+
+echo $! > logs/h4_lb_001_seed44.pid
+```
+
+Theo dõi:
+
+```bash
+for name in h4_lb_001_seed43 h4_lb_001_seed44; do
+  pid=$(cat "logs/${name}.pid")
+  if ps -p "$pid" > /dev/null; then
+    echo "RUNNING: $name"
+  elif grep -q "Experiment complete" "logs/${name}.log"; then
+    echo "DONE: $name"
+  else
+    echo "FAILED: $name"
+  fi
+  tail -n 2 "logs/${name}.log"
+  echo
+done
+```
+
+Sau khi hoàn thành, tổng hợp riêng ba seed của cấu hình `0.001`:
+
+```bash
+python scripts/summarize_experiments.py \
+  --outputs outputs \
+  --pattern 'h4_lb_001_seed*/metrics_valid_best_province_accuracy.json' \
+  --destination outputs/h4_lb_001_multiseed_validation.csv \
+  --aggregate-destination outputs/h4_lb_001_multiseed_validation_aggregate.csv
+```
+
+Đồng thời chạy lại bộ tổng hợp chuyên môn hóa để lấy các chỉ số routing của cả ba
+seed:
+
+```bash
+python scripts/summarize_h4.py \
+  --outputs outputs \
+  --pattern 'h4_lb_001_seed*/metrics_valid_best_province_accuracy.json' \
+  --destination outputs/h4_lb_001_routing_multiseed.csv \
+  --recommendation outputs/h4_lb_001_routing_multiseed_note.json
+```
+
+Tải về:
+
+```text
+outputs/h4_lb_001_multiseed_validation.csv
+outputs/h4_lb_001_multiseed_validation_aggregate.csv
+outputs/h4_lb_001_routing_multiseed.csv
+```
+
+Không chạy test trước khi phân tích xong ba seed validation.
