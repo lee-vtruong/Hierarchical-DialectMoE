@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import csv
 import io
 from pathlib import Path
 from typing import Any
@@ -9,7 +10,7 @@ import librosa
 import numpy as np
 import soundfile as sf
 import torch
-from datasets import Audio, DatasetDict, load_dataset
+from datasets import Audio, DatasetDict, concatenate_datasets, load_dataset
 from transformers import AutoFeatureExtractor
 
 from .labels import LabelVocabulary, normalize_region
@@ -22,6 +23,65 @@ class DatasetBundle:
     datasets: DatasetDict
     region_vocab: LabelVocabulary
     province_vocab: LabelVocabulary
+
+
+def _apply_split_manifest(
+    datasets: DatasetDict, manifest_path: str | Path
+) -> DatasetDict:
+    path = Path(manifest_path)
+    if not path.is_file():
+        raise FileNotFoundError(f"Split manifest not found: {path}")
+    selections: dict[str, dict[str, list[int]]] = {}
+    seen_rows: set[tuple[str, int]] = set()
+    speaker_splits: dict[str, str] = {}
+    with path.open("r", newline="", encoding="utf-8") as handle:
+        for row in csv.DictReader(handle):
+            original_split = row["original_split"]
+            new_split = row["new_split"]
+            row_index = int(row["row_index"])
+            speaker = row.get("speaker_id", "")
+            if original_split not in datasets:
+                raise ValueError(f"Unknown original split in manifest: {original_split}")
+            if not 0 <= row_index < len(datasets[original_split]):
+                raise IndexError(
+                    f"Manifest row index {row_index} out of range for {original_split}"
+                )
+            key = (original_split, row_index)
+            if key in seen_rows:
+                raise ValueError(f"Duplicate manifest row: {key}")
+            seen_rows.add(key)
+            if speaker:
+                previous = speaker_splits.setdefault(speaker, new_split)
+                if previous != new_split:
+                    raise ValueError(
+                        f"Speaker {speaker!r} appears in both {previous} and {new_split}"
+                    )
+            selections.setdefault(new_split, {}).setdefault(original_split, []).append(
+                row_index
+            )
+    expected_rows = sum(len(dataset) for dataset in datasets.values())
+    if len(seen_rows) != expected_rows:
+        raise ValueError(
+            f"Manifest covers {len(seen_rows)} rows, expected {expected_rows}. "
+            "Refuse to train on a partial or stale manifest."
+        )
+    rebuilt = {}
+    for new_split, original_selections in selections.items():
+        parts = [
+            datasets[original_split].select(indices)
+            for original_split, indices in sorted(original_selections.items())
+            if indices
+        ]
+        if parts:
+            rebuilt[new_split] = (
+                parts[0] if len(parts) == 1 else concatenate_datasets(parts)
+            )
+    required = {"train", "valid", "test"}
+    if not required.issubset(rebuilt):
+        raise ValueError(
+            f"Manifest must create train/valid/test; found {sorted(rebuilt)}"
+        )
+    return DatasetDict(rebuilt)
 
 
 def load_vimd(config: dict[str, Any], max_samples: int | None = None) -> DatasetBundle:
@@ -42,6 +102,10 @@ def load_vimd(config: dict[str, Any], max_samples: int | None = None) -> Dataset
         datasets = load_dataset(
             data_config["dataset_name"],
             cache_dir=data_config.get("cache_dir"),
+        )
+    if data_config.get("split_manifest"):
+        datasets = _apply_split_manifest(
+            datasets, data_config["split_manifest"]
         )
     audio_column = data_config["audio_column"]
     # Keep encoded bytes instead of asking datasets to decode with TorchCodec.

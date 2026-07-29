@@ -1,0 +1,6 @@
+extends: h6_speaker_disjoint_prosody.yaml
+
+seed: 44
+
+training:
+  output_dir: outputs/h6_speaker_disjoint_prosody_seed44

@@ -1,0 +1,9 @@
+extends: acoustic_only.yaml
+
+seed: 42
+
+data:
+  split_manifest: data/splits/vimd_speaker_disjoint_seed42.csv
+
+training:
+  output_dir: outputs/h6_speaker_disjoint_acoustic_seed42

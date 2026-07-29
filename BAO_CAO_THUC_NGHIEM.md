@@ -1345,3 +1345,34 @@ Kết luận phù hợp là:
 H5 được dừng mà không đánh giá test, tránh chọn cấu hình dựa gián tiếp trên test
 set. Baseline acoustic + prosody legacy không MoE vẫn là hệ thống tham chiếu
 chính đã có bằng chứng mạnh nhất.
+
+## 17. Thiết kế H6 - Audit leakage và speaker-disjoint split
+
+H6 ưu tiên kiểm tra tính hợp lệ của protocol đánh giá trước khi thử thêm kiến
+trúc. Các nguy cơ được audit:
+
+- Speaker xuất hiện ở nhiều split.
+- Filename xuất hiện ở nhiều split.
+- Audio SHA-256 trùng giữa các split.
+- Một speaker mang nhiều nhãn region hoặc province.
+
+Pipeline audit chỉ đọc metadata ở bước đầu. Duration header và SHA-256 là hai chế
+độ tùy chọn vì có chi phí I/O cao hơn.
+
+Nếu speaker overlap tồn tại, pipeline tạo manifest speaker-disjoint thay vì sao
+chép audio. Manifest ánh xạ từng `(original_split, row_index)` sang split mới và
+được kiểm tra bao phủ toàn bộ dataset. Data loader từ chối:
+
+- Manifest thiếu row hoặc stale.
+- Row bị lặp.
+- Index vượt phạm vi.
+- Speaker xuất hiện trong nhiều split mới.
+- Manifest không tạo đủ train/valid/test.
+
+Speaker được gán một lần và stratify xấp xỉ theo majority province, với seed 42
+và tỷ lệ utterance mục tiêu gần split gốc: train 0,793, valid 0,100, test 0,107.
+Nếu speaker có xung đột nhãn, builder mặc định dừng để yêu cầu điều tra.
+
+Sau khi audit được duyệt, H6 sẽ chạy acoustic-only và acoustic + prosody legacy
+không MoE trên speaker-disjoint split. Mục tiêu là kiểm tra H1 còn lặp lại khi
+người nói hoàn toàn không trùng giữa train, validation và test hay không.

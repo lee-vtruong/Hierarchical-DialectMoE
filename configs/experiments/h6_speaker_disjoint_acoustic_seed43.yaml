@@ -1,0 +1,6 @@
+extends: h6_speaker_disjoint_acoustic.yaml
+
+seed: 43
+
+training:
+  output_dir: outputs/h6_speaker_disjoint_acoustic_seed43

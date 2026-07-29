@@ -1,4 +1,7 @@
-data/
+data/*
+!data/splits/
+data/splits/*
+!data/splits/*.csv
 artifacts/
 checkpoints/
 outputs/
