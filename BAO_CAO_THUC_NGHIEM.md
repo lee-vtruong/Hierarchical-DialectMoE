@@ -1502,3 +1502,15 @@ khoảng 0,025 điểm phần trăm. Đây là mức không đáng kể.
 test utterance, không làm thay đổi kết luận chính. H1 được xác nhận trên repaired
 speaker-disjoint test: prosody cải thiện rõ rệt và có ý nghĩa thống kê cho nhận
 dạng cấp tỉnh, nhưng chưa tạo cải thiện có ý nghĩa ở cấp vùng.
+
+## 18. H7: phân tích lỗi và calibration
+
+H7 dùng prediction H6 đã khóa, không huấn luyện lại và không dùng test để chọn
+hyperparameter. Phân tích gồm hiệu quả theo từng tỉnh qua ba seed, các cặp tỉnh
+nhầm lẫn, chuyển trạng thái sai-thành-đúng/đúng-thành-sai và calibration bằng ECE,
+NLL, Brier score.
+
+Script `scripts/analyze_h7.py` sinh bảng từng seed, bảng aggregate theo tỉnh, bảng
+confusion pair, calibration bin và `h7_summary.json`. Prediction hiện chưa lưu
+thời lượng audio nên phân tích duration được tách khỏi H7 chính; không suy diễn
+thời lượng từ filename hay kích thước probability.
