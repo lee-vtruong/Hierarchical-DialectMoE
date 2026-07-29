@@ -10,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from dialect_moe.split_audit import (
     UtteranceRecord,
+    assign_speakers_preserving_splits,
     assign_speakers_stratified,
     speaker_label_conflicts,
     split_distribution,
@@ -55,6 +56,17 @@ def main() -> None:
         default="outputs/h6_split_audit/speaker_disjoint_summary.json",
     )
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument(
+        "--strategy",
+        choices=["preserve", "rebuild"],
+        default="preserve",
+        help="preserve minimally repairs original splits; rebuild reassigns all speakers.",
+    )
+    parser.add_argument(
+        "--split-priority",
+        default="train,valid,test",
+        help="Priority used by preserve strategy; earlier split wins overlap.",
+    )
     parser.add_argument("--train-ratio", type=float, default=0.793)
     parser.add_argument("--valid-ratio", type=float, default=0.100)
     parser.add_argument("--test-ratio", type=float, default=0.107)
@@ -74,7 +86,12 @@ def main() -> None:
         "valid": args.valid_ratio,
         "test": args.test_ratio,
     }
-    assignments = assign_speakers_stratified(records, ratios, args.seed)
+    if args.strategy == "preserve":
+        priority = [value.strip() for value in args.split_priority.split(",") if value.strip()]
+        assignments = assign_speakers_preserving_splits(records, priority)
+    else:
+        priority = None
+        assignments = assign_speakers_stratified(records, ratios, args.seed)
 
     output = Path(args.output)
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -103,10 +120,23 @@ def main() -> None:
                 }
             )
 
+    moved_utterances = sum(
+        assignments[record.speaker_id] != record.original_split
+        for record in records
+    )
+    moved_speakers = {
+        record.speaker_id
+        for record in records
+        if assignments[record.speaker_id] != record.original_split
+    }
     summary = {
+        "strategy": args.strategy,
         "seed": args.seed,
         "ratios": ratios,
+        "split_priority": priority,
         "label_conflict_speakers": len(conflicts),
+        "moved_utterances": moved_utterances,
+        "moved_speakers": len(moved_speakers),
         "distribution": split_distribution(records, assignments),
     }
     save_json(summary, args.summary)

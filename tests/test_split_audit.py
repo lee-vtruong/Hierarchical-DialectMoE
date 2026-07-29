@@ -4,6 +4,7 @@ import pytest
 
 from dialect_moe.split_audit import (
     UtteranceRecord,
+    assign_speakers_preserving_splits,
     assign_speakers_stratified,
     duplicate_values_by_split,
 )
@@ -37,6 +38,12 @@ def test_overlap_and_speaker_assignment_are_disjoint():
     )
     assert set(assignments) == {"a", "b", "c", "d", "e", "f"}
     assert set(assignments.values()) == {"train", "valid", "test"}
+    preserved = assign_speakers_preserving_splits(
+        records, ["train", "valid", "test"]
+    )
+    assert preserved["a"] == "train"
+    assert preserved["b"] == "train"
+    assert preserved["c"] == "test"
 
 
 def test_manifest_rebuilds_splits_without_speaker_overlap(tmp_path):

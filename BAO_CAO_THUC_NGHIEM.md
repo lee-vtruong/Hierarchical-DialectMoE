@@ -1376,3 +1376,37 @@ Nếu speaker có xung đột nhãn, builder mặc định dừng để yêu c�
 Sau khi audit được duyệt, H6 sẽ chạy acoustic-only và acoustic + prosody legacy
 không MoE trên speaker-disjoint split. Mục tiêu là kiểm tra H1 còn lặp lại khi
 người nói hoàn toàn không trùng giữa train, validation và test hay không.
+
+### 17.1 Kết quả metadata audit
+
+| Split | Utterance | Speaker |
+|---|---:|---:|
+| Train | 15.023 | 10.291 |
+| Validation | 1.900 | 1.320 |
+| Test | 2.026 | 1.344 |
+
+Audit phát hiện 2 speaker xuất hiện ở cả validation và test, ảnh hưởng tổng cộng
+5 utterance. Không có speaker overlap với train, không filename trùng giữa các
+split và không speaker mang nhiều nhãn region/province.
+
+| Speaker | Validation | Test |
+|---|---:|---:|
+| `spk_73_0186` | 1 | 2 |
+| `spk_76_0219` | 1 | 1 |
+
+Mức leakage rất nhỏ nhưng vẫn vi phạm nguyên tắc test speaker chưa từng thấy khi
+validation được dùng để chọn mô hình.
+
+### 17.2 Quyết định sửa split
+
+Không rebuild toàn bộ dataset vì điều đó thay đổi gần 19 nghìn assignment và tạo
+thêm variance không cần thiết. H6 dùng minimal repair với priority:
+
+```text
+train > valid > test
+```
+
+Hai speaker overlap được giữ trong validation; ba utterance tương ứng được chuyển
+từ test sang validation. Dự kiến train giữ nguyên 15.023 utterance, validation
+tăng lên 1.903 và test giảm xuống 2.023. Quyết định chỉ dựa trên metadata, không
+sử dụng prediction hay metric mô hình.

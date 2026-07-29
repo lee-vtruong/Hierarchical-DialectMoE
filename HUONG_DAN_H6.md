@@ -100,7 +100,30 @@ Theo dõi:
 tail -f logs/h6_audio_hash_audit.log
 ```
 
-## 6. Tạo speaker-disjoint manifest
+## 6. Kết quả metadata audit
+
+Audit split gốc ghi nhận:
+
+```text
+train: 15.023 utterance, 10.291 speaker
+valid:  1.900 utterance,  1.320 speaker
+test:   2.026 utterance,  1.344 speaker
+```
+
+Chỉ có hai speaker overlap, đều giữa valid và test:
+
+```text
+spk_73_0186: valid 1, test 2
+spk_76_0219: valid 1, test 1
+```
+
+Không có speaker overlap với train, không filename trùng split và không speaker
+xung đột nhãn. Vì leakage rất nhỏ, không rebuild ngẫu nhiên toàn bộ dataset. Dùng
+chiến lược `preserve`: giữ nguyên split và chuyển ba utterance test của hai
+speaker trên sang valid. Priority `train,valid,test` đảm bảo speaker đã thấy khi
+train hoặc chọn mô hình không còn trong test.
+
+## 7. Tạo speaker-disjoint manifest
 
 Chỉ chạy khi `speaker_label_conflicts` bằng 0:
 
@@ -109,6 +132,8 @@ python scripts/build_speaker_disjoint_split.py \
   --records outputs/h6_split_audit/records.csv \
   --output data/splits/vimd_speaker_disjoint_seed42.csv \
   --summary outputs/h6_split_audit/speaker_disjoint_summary.json \
+  --strategy preserve \
+  --split-priority train,valid,test \
   --seed 42 \
   --train-ratio 0.793 \
   --valid-ratio 0.100 \
@@ -118,7 +143,17 @@ python scripts/build_speaker_disjoint_split.py \
 Nếu có xung đột nhãn, script chủ động dừng. Không dùng
 `--allow-label-conflicts` trước khi xem từng trường hợp.
 
-## 7. Kiểm tra manifest
+Kết quả mong đợi:
+
+```text
+moved_speakers: 2
+moved_utterances: 3
+train utterances: 15023
+valid utterances: 1903
+test utterances: 2023
+```
+
+## 8. Kiểm tra manifest
 
 ```bash
 cat outputs/h6_split_audit/speaker_disjoint_summary.json
@@ -149,7 +184,7 @@ python scripts/summarize_split_audit.py \
   --output outputs/h6_split_audit/BAO_CAO_AUDIT.md
 ```
 
-## 8. Lưu manifest lên GitHub
+## 9. Lưu manifest lên GitHub
 
 Manifest nhỏ và `.gitignore` cho phép track riêng `data/splits/*.csv` mà vẫn bỏ
 qua toàn bộ audio:
@@ -163,7 +198,7 @@ git push origin main
 Không commit `records.csv` vì file đó thuộc outputs và có thể chứa metadata chi
 tiết không cần đưa vào repository.
 
-## 9. Config H6 đã chuẩn bị
+## 10. Config H6 đã chuẩn bị
 
 Acoustic-only:
 
@@ -183,13 +218,14 @@ h6_speaker_disjoint_prosody_seed44.yaml
 
 Chưa chạy sáu config cho đến khi audit và phân bố split mới được duyệt.
 
-## 10. Lưu ý phương pháp
+## 11. Lưu ý phương pháp
 
 - Split seed là 42 và phải giữ cố định.
 - Mỗi speaker chỉ thuộc đúng một split.
-- Stratification dùng majority province của speaker.
+- Chiến lược chính là minimal repair, không tái chia ngẫu nhiên toàn bộ dữ liệu.
+- Chế độ `rebuild` stratify theo majority province chỉ dành cho nghiên cứu split
+  mới hoàn toàn, không dùng trong H6 hiện tại.
 - Nếu một speaker có nhiều province/region, phải điều tra trước.
 - Loader từ chối manifest thiếu row, trùng row, sai index hoặc speaker xuất hiện
   ở nhiều split.
 - Test mới không được dùng để chọn hyperparameter.
-

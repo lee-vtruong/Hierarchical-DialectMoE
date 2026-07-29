@@ -119,6 +119,34 @@ def assign_speakers_stratified(
     return assignments
 
 
+def assign_speakers_preserving_splits(
+    records: Iterable[UtteranceRecord],
+    priority: list[str],
+) -> dict[str, str]:
+    """Repair overlap with the fewest policy-driven split changes.
+
+    A speaker present in multiple original splits is assigned to the
+    highest-priority split. With train > valid > test, no speaker observed
+    during training or model selection remains in the held-out test set.
+    """
+    priority_rank = {split: index for index, split in enumerate(priority)}
+    if len(priority_rank) != len(priority):
+        raise ValueError("Split priority contains duplicate names")
+    speaker_splits: dict[str, set[str]] = defaultdict(set)
+    for record in records:
+        if not record.speaker_id:
+            raise ValueError("Cannot repair splits with empty speaker_id")
+        if record.original_split not in priority_rank:
+            raise ValueError(
+                f"Original split {record.original_split!r} is absent from priority"
+            )
+        speaker_splits[record.speaker_id].add(record.original_split)
+    return {
+        speaker: min(splits, key=lambda split: priority_rank[split])
+        for speaker, splits in speaker_splits.items()
+    }
+
+
 def split_distribution(
     records: Iterable[UtteranceRecord], assignments: dict[str, str]
 ) -> dict[str, dict]:
