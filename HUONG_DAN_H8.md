@@ -98,6 +98,9 @@ outputs/h8/
 lượng mô hình thực sự thấy sau khi giới hạn theo `data.max_seconds = 20`. Phân
 tích bucket dùng effective duration để phù hợp với input của mô hình.
 
+Các mẫu có effective duration đúng 20 giây được ghi là `20 (capped)`, tách khỏi
+bucket `[10,20)`. Phần lớn nhóm capped là audio gốc dài hơn 20 giây và đã bị cắt.
+
 ## 5. Cách đọc kết quả
 
 - `improvement_mean > 0`: prosody tốt hơn acoustic trong bucket.
@@ -122,3 +125,15 @@ outputs/h8/focus_province_aggregate.csv
 
 Không cần gửi `duration_metadata.csv` vì chứa 2.023 dòng và không cần thiết cho
 kết luận tổng hợp.
+
+## 7. Kết quả H8 đã thu được
+
+- Thời lượng gốc trung bình 19,32 giây, trung vị 19,52 giây.
+- 974/2.023 mẫu (48,15%) dài hơn 20 giây và bị cắt trước khi vào mô hình.
+- Prosody cải thiện khoảng 3,97--5,12 điểm phần trăm ở các bucket có đủ support
+  từ 6 giây trở lên.
+- Hai bucket 2--4 và 4--6 giây chỉ có 13 và 18 mẫu, không đủ để kết luận.
+- Cả hai mô hình đều quá tự tin ở mọi confidence bucket.
+- Prosody giảm calibration gap ở cả bốn confidence bucket.
+- Thời lượng trung bình của nhóm tỉnh cải thiện và suy giảm khá gần nhau; thời
+  lượng không giải thích trực tiếp sự khác biệt theo tỉnh.

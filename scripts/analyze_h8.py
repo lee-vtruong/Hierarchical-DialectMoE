@@ -75,7 +75,7 @@ def bucket_label(value: float, edges: list[float]) -> str:
         if lower <= value < upper:
             return f"[{lower:g},{upper:g})"
     if value == edges[-1]:
-        return f"[{edges[-2]:g},{edges[-1]:g}]"
+        return f"{edges[-1]:g} (capped)"
     raise ValueError(f"Value {value} is outside bucket edges")
 
 

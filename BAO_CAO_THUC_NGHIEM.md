@@ -1592,3 +1592,70 @@ Các phân tích được khai báo trước gồm bucket thời lượng `[0,2)
 `[4,6)`, `[6,10)`, `[10,20]` giây; bucket confidence `[0,0.4)`, `[0.4,0.6)`,
 `[0.6,0.8)`, `[0.8,1]`; và nhóm tỉnh trọng điểm 17, 30, 22, 38, 70, 14, 11.
 Mục tiêu là định vị xu hướng, không chọn lại hyperparameter từ test.
+
+### 19.1 Phân bố thời lượng
+
+Repaired test có thời lượng gốc trung bình 19,32 giây, trung vị 19,52 giây,
+phân vị 95% là 29,29 giây và tối đa 32,03 giây. Có 974/2.023 mẫu (48,15%) dài
+hơn giới hạn 20 giây và bị cắt trước khi vào mô hình.
+
+Do bucket dùng effective duration, kết quả ban đầu ghi hai hàng `[10,20)` và
+`[10,20]`. Hàng thứ hai chỉ chứa effective duration đúng 20 giây, gần như toàn
+bộ là mẫu bị cắt; code sau đó đổi nhãn này thành `20 (capped)` để tránh hiểu nhầm.
+Không có mẫu dưới 2 giây.
+
+| Effective duration | Support | Acoustic | Acoustic + prosody | Chênh lệch |
+|---|---:|---:|---:|---:|
+| 2--4 giây | 13 | 0,2564 | 0,2564 | 0,0000 |
+| 4--6 giây | 18 | 0,2778 | 0,3148 | +0,0370 |
+| 6--10 giây | 151 | 0,3113 | 0,3510 | +0,0397 |
+| 10--<20 giây | 866 | 0,3903 | 0,4415 | **+0,0512** |
+| 20 giây capped | 975 | 0,4154 | 0,4629 | **+0,0475** |
+
+Prosody có lợi ở tất cả bucket từ 4 giây trở lên, rõ và ổn định nhất ở hai nhóm
+lớn từ 10 giây. Hai bucket 2--4 và 4--6 giây chỉ có 13 và 18 mẫu nên variance
+lớn, không đủ bằng chứng để kết luận về audio rất ngắn. Accuracy tăng theo thời
+lượng ở cả hai mô hình, nhưng đây là quan hệ mô tả, chưa chứng minh quan hệ nhân
+quả vì nội dung, speaker và tỉnh có thể cùng thay đổi theo duration.
+
+### 19.2 Confidence và overconfidence
+
+| Confidence | Acoustic accuracy | Prosody accuracy | Acoustic gap | Prosody gap |
+|---|---:|---:|---:|---:|
+| 0--0,4 | 0,1410 | 0,1743 | 0,1826 | **0,1490** |
+| 0,4--0,6 | 0,2328 | 0,2661 | 0,2684 | **0,2326** |
+| 0,6--0,8 | 0,3215 | 0,3808 | 0,3789 | **0,3190** |
+| 0,8--1,0 | 0,6360 | 0,6866 | 0,2938 | **0,2407** |
+
+Calibration gap dương ở mọi bucket: cả hai mô hình đều quá tự tin. Prosody tăng
+accuracy từ 3,33 đến 5,93 điểm phần trăm và giảm gap trong cả bốn bucket. Mức
+gap vẫn lớn, đặc biệt ở confidence 0,6--0,8, nên probability thô chưa phù hợp để
+diễn giải như xác suất đúng hoặc dùng làm ngưỡng triển khai mà chưa calibration.
+
+### 19.3 Nhóm tỉnh trọng điểm
+
+| Tỉnh | Thời lượng TB (giây) | Acoustic | Prosody | Chênh lệch |
+|---:|---:|---:|---:|---:|
+| 17 | 18,63 | 0,1616 | 0,6667 | **+0,5051** |
+| 30 | 20,34 | 0,4598 | 0,8046 | **+0,3448** |
+| 22 | 17,89 | 0,1569 | 0,4706 | **+0,3137** |
+| 38 | 19,53 | 0,8586 | 0,6768 | -0,1818 |
+| 70 | 18,25 | 0,5980 | 0,4314 | -0,1667 |
+| 14 | 17,83 | 0,4510 | 0,3137 | -0,1373 |
+| 11 | 18,22 | 0,6095 | 0,4857 | -0,1238 |
+
+Thời lượng trung bình của các tỉnh cải thiện và suy giảm nằm trong khoảng gần
+nhau, chủ yếu 17,83--20,34 giây. Vì vậy duration không phải lời giải thích trực
+tiếp cho khác biệt theo tỉnh. Ngoại lệ tỉnh 30 có trung bình trên 20 giây cho thấy
+nhiều mẫu bị capped nhưng vẫn cải thiện mạnh; truncation không xóa lợi ích
+prosody ở tỉnh này.
+
+### 19.4 Kết luận H8
+
+Prosody cải thiện ổn định trên phần dữ liệu có support đủ lớn và giảm
+overconfidence trong mọi confidence bucket. Tuy nhiên gần một nửa test bị cắt ở
+20 giây, khiến thí nghiệm hiện tại chưa cho biết việc dùng toàn bộ audio dài có
+tốt hơn hay không. Hiệu quả trái chiều theo tỉnh không được giải thích bởi thời
+lượng trung bình. Hướng tiếp theo hợp lý là calibration hậu nghiệm trên validation
+và kiểm tra chiến lược crop/pooling cho audio dài, tuyệt đối không fit temperature
+hoặc chọn chiến lược bằng test.

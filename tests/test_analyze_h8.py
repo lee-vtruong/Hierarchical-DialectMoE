@@ -21,7 +21,7 @@ def test_bucket_label_boundaries():
     edges = [0, 2, 4, 6]
     assert bucket_label(0, edges) == "[0,2)"
     assert bucket_label(2, edges) == "[2,4)"
-    assert bucket_label(6, edges) == "[4,6]"
+    assert bucket_label(6, edges) == "6 (capped)"
 
 
 def test_analyse_seed_duration_and_confidence():
