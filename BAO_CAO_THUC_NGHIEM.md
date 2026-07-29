@@ -1580,3 +1580,15 @@ số tỉnh và cặp nhầm bị suy giảm nhất quán, nên hướng tiếp 
 trưng âm học/prosody của các nhóm 17, 30, 22 so với 38, 70, 14 và kiểm tra cơ chế
 fusion hoặc calibration theo tỉnh. H7 không thay đổi kết luận H6, nhưng chỉ ra
 rằng một con số accuracy tổng hợp chưa mô tả hết hành vi của mô hình.
+
+## 19. H8: thời lượng, confidence và nhóm tỉnh trọng điểm
+
+H8 được thiết kế như phân tích hậu nghiệm trên prediction H6 đã khóa, không huấn
+luyện lại và không chạy backbone. Script đọc header audio của repaired test để
+lấy thời lượng thật, đồng thời dùng thời lượng hiệu dụng sau giới hạn 20 giây đúng
+như input mô hình.
+
+Các phân tích được khai báo trước gồm bucket thời lượng `[0,2)`, `[2,4)`,
+`[4,6)`, `[6,10)`, `[10,20]` giây; bucket confidence `[0,0.4)`, `[0.4,0.6)`,
+`[0.6,0.8)`, `[0.8,1]`; và nhóm tỉnh trọng điểm 17, 30, 22, 38, 70, 14, 11.
+Mục tiêu là định vị xu hướng, không chọn lại hyperparameter từ test.
