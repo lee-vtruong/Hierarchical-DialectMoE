@@ -1659,3 +1659,14 @@ tốt hơn hay không. Hiệu quả trái chiều theo tỉnh không được gi
 lượng trung bình. Hướng tiếp theo hợp lý là calibration hậu nghiệm trên validation
 và kiểm tra chiến lược crop/pooling cho audio dài, tuyệt đối không fit temperature
 hoặc chọn chiến lược bằng test.
+
+## 20. H9: temperature scaling trên validation
+
+H9 calibration riêng acoustic-only và acoustic + prosody cho từng seed. Một
+scalar temperature được fit bằng cách tối thiểu hóa NLL trên repaired validation,
+sau đó khóa và áp dụng lên repaired test. Test không tham gia fit temperature,
+chọn khoảng tìm kiếm hay chọn mô hình.
+
+Temperature scaling bảo toàn argmax nên province accuracy trước và sau phải giống
+nhau. Các chỉ số chính là ECE 15 bin, NLL, multiclass Brier score và confidence
+trung bình. Kết quả sẽ được báo cáo cả từng seed và trung bình ba seed.

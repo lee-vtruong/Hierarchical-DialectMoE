@@ -6,6 +6,7 @@ accelerate>=0.31
 librosa>=0.10.2
 soundfile>=0.12
 scikit-learn>=1.4
+scipy>=1.13
 numpy>=1.26
 PyYAML>=6.0
 tqdm>=4.66
