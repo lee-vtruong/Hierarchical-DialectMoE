@@ -1105,3 +1105,73 @@ Chỉ đưa H4 sang test cuối nếu:
 - Paired results không cho thấy H4 suy giảm rõ ràng.
 
 Quy tắc này tránh dùng test set để quyết định có giữ MoE hay không.
+
+### 15.7 So sánh H4 với baseline không MoE trên validation
+
+Baseline là acoustic + prosody, không MoE, sử dụng cùng checkpoint selection và
+cùng validation set.
+
+| Cấu hình | Region accuracy | Province accuracy | Province balanced accuracy | Province macro-F1 |
+|---|---:|---:|---:|---:|
+| Baseline không MoE | 0,8921 ± 0,0009 | 0,4940 ± 0,0095 | 0,4900 ± 0,0074 | 0,4825 ± 0,0085 |
+| H4 MoE-4, load balance 0,001 | 0,8954 ± 0,0045 | 0,4963 ± 0,0016 | 0,4921 ± 0,0006 | 0,4851 ± 0,0023 |
+| Chênh lệch mean H4 - baseline | +0,0033 | +0,0023 | +0,0020 | +0,0025 |
+
+H4 có mean cao hơn rất nhẹ, khoảng 0,23 điểm phần trăm province accuracy và 0,25
+điểm phần trăm province macro-F1. H4 cũng có variance cấp tỉnh thấp hơn trong ba
+seed này. Tuy nhiên hiệu ứng theo seed không nhất quán.
+
+#### Province accuracy paired
+
+| Seed | H4 - baseline | Speaker-bootstrap CI 95% | P(H4 tốt hơn) | McNemar exact p |
+|---:|---:|---:|---:|---:|
+| 42 | +0,0032 | [-0,0209; 0,0277] | 0,6042 | 0,8129 |
+| 43 | +0,0121 | [-0,0123; 0,0375] | 0,8300 | 0,3002 |
+| 44 | -0,0084 | [-0,0324; 0,0154] | 0,2309 | 0,4776 |
+
+Cả ba CI 95% chứa 0 và cả ba McNemar p-value lớn hơn 0,05. H4 tăng ở seed 42,
+43 nhưng giảm ở seed 44.
+
+#### Province macro-F1 paired
+
+| Seed | H4 - baseline | Speaker-bootstrap CI 95% |
+|---:|---:|---:|
+| 42 | +0,0068 | [-0,0168; 0,0315] |
+| 43 | +0,0105 | [-0,0128; 0,0356] |
+| 44 | -0,0096 | [-0,0330; 0,0146] |
+
+Không CI nào loại trừ 0. Kết quả không cung cấp bằng chứng thống kê rằng H4 cải
+thiện province macro-F1.
+
+#### Region accuracy paired
+
+| Seed | H4 - baseline | Speaker-bootstrap CI 95% | McNemar exact p |
+|---:|---:|---:|---:|
+| 42 | +0,0053 | [-0,0073; 0,0175] | 0,4300 |
+| 43 | +0,0068 | [-0,0056; 0,0194] | 0,2869 |
+| 44 | -0,0021 | [-0,0146; 0,0104] | 0,7807 |
+
+Kết quả region cũng đổi dấu và không có ý nghĩa thống kê.
+
+### 15.8 Quyết định chính thức cho H4
+
+Theo cổng quyết định được đặt trước khi xem baseline validation:
+
+> Không có đủ bằng chứng để đưa H4 MoE vào một vòng test cuối.
+
+Lý do:
+
+- Mức tăng mean rất nhỏ.
+- Hiệu ứng đổi dấu ở seed 44.
+- Tất cả paired bootstrap CI 95% đều chứa 0.
+- Tất cả McNemar p-value đều lớn hơn 0,05.
+- Soft routing vẫn gần uniform, nên bằng chứng chuyên môn hóa expert yếu.
+- H3 trên test trước đó cũng không cho thấy lợi ích MoE lặp lại ổn định.
+
+Nhánh tuning MoE/load-balancing được dừng tại đây để tránh tiếp tục tối ưu gián
+tiếp theo test set và tiêu tốn compute. Kết quả H4 được báo cáo như một negative
+result có kiểm soát. Baseline acoustic + prosody không MoE tiếp tục là hệ thống
+tham chiếu chính.
+
+Hướng thực nghiệm tiếp theo chuyển sang đặc trưng spectral/FFT, được đánh giá
+validation-only trước khi khóa bất kỳ cấu hình mới nào.

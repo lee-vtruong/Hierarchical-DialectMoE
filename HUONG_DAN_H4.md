@@ -388,3 +388,26 @@ outputs/h4_vs_baseline_valid_seed44.json
 
 Chỉ sau khi phân tích năm file này mới quyết định chạy test cuối hay dừng nhánh
 MoE.
+
+## 12. Quyết định cuối cho H4
+
+H4 so với baseline không MoE trên validation:
+
+```text
+region accuracy tăng trung bình             +0.0033
+province accuracy tăng trung bình           +0.0023
+province balanced accuracy tăng trung bình  +0.0020
+province macro-F1 tăng trung bình           +0.0025
+```
+
+Mức tăng nhỏ và không nhất quán:
+
+- Seed 42 và 43 tăng.
+- Seed 44 giảm.
+- Mọi speaker-bootstrap CI 95% đều chứa 0.
+- Mọi McNemar exact p-value đều lớn hơn 0,05.
+- Soft router vẫn gần uniform.
+
+Vì vậy H4 không vượt qua cổng validation. **Không chạy thêm test cho H4** và
+không chọn lại một hệ số khác từ sweep. Nhánh MoE được dừng, còn acoustic +
+prosody không MoE là baseline chính cho bước spectral/FFT tiếp theo.
