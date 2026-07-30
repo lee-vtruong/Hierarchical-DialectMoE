@@ -106,12 +106,14 @@ class HierarchicalDialectMoE(nn.Module):
             "use_spectral" in model_config
             or "prosody_feature_set" in model_config
         )
-        # Force the non-pickle checkpoint format. Recent Transformers versions
-        # reject torch.load on PyTorch < 2.6 because of CVE-2025-32434.
+        # Prefer the non-pickle checkpoint format. A few explicitly configured
+        # legacy research backbones only publish pytorch_model.bin; those require
+        # PyTorch >= 2.6 and opt out via use_safetensors: false.
+        use_safetensors = bool(model_config.get("use_safetensors", True))
         self.backbone = (
             AutoModel.from_pretrained(
                 model_config["backbone"],
-                use_safetensors=True,
+                use_safetensors=use_safetensors,
             )
             if self.use_acoustic
             else None

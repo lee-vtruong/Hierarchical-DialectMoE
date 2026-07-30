@@ -1806,3 +1806,20 @@ Kết quả seed 44 được giữ như tín hiệu exploratory: thông tin cu�
 ích ở một số checkpoint, nhưng cần thiết kế pooling/attention được huấn luyện trên
 multi-segment validation thay vì chỉ trung bình logit hậu nghiệm. Do không có
 chiến lược multi-crop thắng ổn định, không fit lại temperature H9 cho multi-crop.
+
+## 22. H11: backbone pretrained tiếng Việt
+
+H11 kiểm tra liệu backbone pretrained theo miền tiếng Việt có thể cải thiện đồng
+thời phân loại ba vùng và 63 tỉnh. Hai backbone được định trước:
+`wav2vec2-base-vi` (~95M) và `wav2vec2-large-vi` (~317M), đều được pretrained
+trên khoảng 13.000 giờ audio YouTube tiếng Việt.
+
+Ma trận gồm acoustic-only/acoustic+prosody, seed 42/43/44 và repaired
+speaker-disjoint split. Base dùng batch 4 × accumulation 8; large dùng batch 2 ×
+accumulation 16, cùng effective batch size 32. Mỗi run báo cáo riêng checkpoint
+tốt nhất theo province validation accuracy và region validation accuracy.
+
+Mốc so sánh được khóa trước: bài ViMD gốc đạt region macro-F1 0,9147 và province
+macro-F1 0,4107; H6 acoustic+prosody đạt lần lượt khoảng 0,8977 và 0,4368.
+Không chọn backbone/checkpoint bằng test; kết quả test dùng để báo cáo độ tổng
+quát hóa của toàn bộ ma trận đã định trước.

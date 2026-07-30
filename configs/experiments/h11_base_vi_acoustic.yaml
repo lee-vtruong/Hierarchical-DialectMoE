@@ -1,0 +1,8 @@
+extends: h6_speaker_disjoint_acoustic.yaml
+
+model:
+  backbone: nguyenvulebinh/wav2vec2-base-vi
+  use_safetensors: false
+
+training:
+  output_dir: outputs/h11_base_vi_acoustic_seed42

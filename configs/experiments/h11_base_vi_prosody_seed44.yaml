@@ -1,0 +1,6 @@
+extends: h11_base_vi_prosody.yaml
+
+seed: 44
+
+training:
+  output_dir: outputs/h11_base_vi_prosody_seed44

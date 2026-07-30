@@ -33,3 +33,44 @@ def test_legacy_acoustic_only_does_not_opt_into_dynamic_h5_fusion():
     assert "prosody_feature_set" not in legacy["model"]
     assert h5["model"]["use_spectral"] is False
     assert h5["model"]["prosody_feature_set"] == "pitch_energy"
+
+
+def test_h11_vietnamese_backbone_matrix():
+    root = Path(__file__).resolve().parents[1]
+    cases = {
+        "h11_base_vi_acoustic.yaml": (
+            "nguyenvulebinh/wav2vec2-base-vi",
+            False,
+            4,
+            8,
+        ),
+        "h11_base_vi_prosody_seed44.yaml": (
+            "nguyenvulebinh/wav2vec2-base-vi",
+            True,
+            4,
+            8,
+        ),
+        "h11_large_vi_acoustic_seed43.yaml": (
+            "nguyenvulebinh/wav2vec2-large-vi",
+            False,
+            2,
+            16,
+        ),
+        "h11_large_vi_prosody.yaml": (
+            "nguyenvulebinh/wav2vec2-large-vi",
+            True,
+            2,
+            16,
+        ),
+    }
+    for filename, expected in cases.items():
+        config = load_config(root / "configs" / "experiments" / filename)
+        backbone, prosody, batch_size, accumulation = expected
+        assert config["model"]["backbone"] == backbone
+        assert config["model"]["use_safetensors"] is False
+        assert config["model"]["use_prosody"] is prosody
+        assert config["data"]["split_manifest"].endswith(
+            "vimd_speaker_disjoint_seed42.csv"
+        )
+        assert config["training"]["batch_size"] == batch_size
+        assert config["training"]["gradient_accumulation_steps"] == accumulation

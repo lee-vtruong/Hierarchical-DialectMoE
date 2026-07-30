@@ -1,0 +1,10 @@
+extends: h6_speaker_disjoint_acoustic.yaml
+
+model:
+  backbone: nguyenvulebinh/wav2vec2-large-vi
+  use_safetensors: false
+
+training:
+  batch_size: 2
+  gradient_accumulation_steps: 16
+  output_dir: outputs/h11_large_vi_acoustic_seed42

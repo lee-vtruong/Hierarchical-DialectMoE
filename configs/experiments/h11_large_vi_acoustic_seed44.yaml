@@ -1,0 +1,6 @@
+extends: h11_large_vi_acoustic.yaml
+
+seed: 44
+
+training:
+  output_dir: outputs/h11_large_vi_acoustic_seed44
