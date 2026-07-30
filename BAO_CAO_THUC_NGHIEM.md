@@ -1723,3 +1723,26 @@ Temperature phải được lưu kèm từng checkpoint vì giá trị khác nha
 không dùng temperature trung bình để thay thế khi triển khai checkpoint riêng.
 ECE sau calibration vẫn khác 0, nên probability đã cải thiện nhưng không được xem
 là xác suất hoàn hảo.
+
+## 21. H10: multi-crop inference cho audio dài
+
+H10 kiểm tra hạn chế truncation được phát hiện ở H8 mà không huấn luyện lại.
+Checkpoint acoustic + prosody của ba seed được giữ nguyên. Hai chiến lược được
+định trước:
+
+- `start_end`: trung bình logit của crop 20 giây đầu và cuối.
+- `uniform`: trung bình logit của ba crop phân bố đều từ đầu đến cuối.
+
+Mẫu không dài hơn 20 giây chỉ dùng một crop. Mỗi chiến lược được so sánh paired
+với first-crop H6 trên cùng 2.023 repaired-test utterance bằng speaker bootstrap
+và exact McNemar. Test chỉ dùng để đánh giá, không dùng để điều chỉnh số crop,
+vị trí crop hay checkpoint.
+
+Evaluator H10 còn chạy chiến lược `first` như sanity control cho cả ba seed.
+Argmax của control phải trùng hoàn toàn prediction H6 trước khi chấp nhận so sánh
+multi-crop; sau đó `start_end` và `uniform` được so sánh paired với control sinh
+từ cùng evaluator.
+
+Temperature của H9 không được tái sử dụng trực tiếp vì phân phối mean-logit
+multi-crop khác first-crop. H10 đánh giá classification trước; nếu một chiến lược
+thắng ổn định, temperature mới phải được fit lại trên multi-crop validation.
