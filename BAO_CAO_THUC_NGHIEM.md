@@ -1670,3 +1670,56 @@ chọn khoảng tìm kiếm hay chọn mô hình.
 Temperature scaling bảo toàn argmax nên province accuracy trước và sau phải giống
 nhau. Các chỉ số chính là ECE 15 bin, NLL, multiclass Brier score và confidence
 trung bình. Kết quả sẽ được báo cáo cả từng seed và trung bình ba seed.
+
+### 20.1 Temperature học từ repaired validation
+
+| Mô hình | Seed 42 | Seed 43 | Seed 44 | Trung bình |
+|---|---:|---:|---:|---:|
+| Acoustic-only | 1,7363 | 1,6150 | 1,8606 | 1,7373 ± 0,1228 |
+| Acoustic + prosody | 1,4316 | 1,7815 | 1,6580 | 1,6237 ± 0,1774 |
+
+Tất cả temperature đều lớn hơn 1, xác nhận logit ban đầu quá sắc/overconfident.
+Không giá trị nào gần biên tìm kiếm 0,05 hoặc 10. NLL validation giảm ở cả sáu
+model-seed; accuracy validation được giữ nguyên tuyệt đối.
+
+### 20.2 Kết quả trên repaired test
+
+| Mô hình | Trạng thái | Accuracy | ECE | NLL | Brier | Confidence TB |
+|---|---|---:|---:|---:|---:|---:|
+| Acoustic-only | Trước | 0,3946 | 0,2920 | 2,8241 | 0,8569 | 0,6864 |
+| Acoustic-only | Sau | 0,3946 | **0,0632** | **2,2814** | **0,7504** | 0,4503 |
+| Acoustic + prosody | Trước | 0,4427 | 0,2453 | 2,4748 | 0,7820 | 0,6880 |
+| Acoustic + prosody | Sau | 0,4427 | **0,0522** | **2,0714** | **0,7053** | 0,4900 |
+
+Temperature scaling giảm ECE acoustic-only 0,2289 (78,4% tương đối), NLL 0,5426
+và Brier 0,1065. Với acoustic + prosody, ECE giảm 0,1930 (78,7%), NLL giảm
+0,4034 và Brier giảm 0,0767. Accuracy không đổi ở từng seed, đúng với tính chất
+bảo toàn argmax.
+
+Sau calibration, acoustic + prosody vẫn tốt hơn acoustic-only trên cả accuracy
+(+0,0481), ECE (-0,0109), NLL (-0,2101) và Brier (-0,0451). Vì vậy lợi thế của
+prosody không phải chỉ do thay đổi độ sắc của probability.
+
+### 20.3 Tính ổn định theo seed
+
+ECE test sau calibration của acoustic-only lần lượt là 0,0809, 0,0490 và 0,0596
+ở seed 42--44. Acoustic + prosody đạt 0,0535, 0,0512 và 0,0520. Đặc biệt,
+prosody seed 43 từng có ECE 0,2849 và NLL 2,6396 trước calibration; sau khi dùng
+temperature 1,7815 học từ validation, hai chỉ số giảm còn 0,0512 và 2,0890.
+
+Độ lệch chuẩn ECE sau calibration của prosody chỉ 0,0012, thấp hơn acoustic-only
+0,0163. Điều này cho thấy scalar temperature không chỉ giảm lỗi calibration
+trung bình mà còn làm prosody ổn định hơn rõ rệt giữa các seed.
+
+### 20.4 Kết luận H9
+
+H9 xác nhận cả hai mô hình ban đầu đều overconfident và scalar temperature
+scaling fit hoàn toàn trên repaired validation có khả năng chuyển tốt sang
+repaired test. Phương pháp giảm mạnh ECE, NLL và Brier ở cả ba seed mà không đổi
+accuracy. Phiên bản acoustic + prosody sau calibration là lựa chọn tốt nhất nếu
+cần cả nhận dạng cấp tỉnh và probability có ý nghĩa hơn.
+
+Temperature phải được lưu kèm từng checkpoint vì giá trị khác nhau theo seed;
+không dùng temperature trung bình để thay thế khi triển khai checkpoint riêng.
+ECE sau calibration vẫn khác 0, nên probability đã cải thiện nhưng không được xem
+là xác suất hoàn hảo.

@@ -175,3 +175,25 @@ outputs/h9/h9_aggregate.csv
 ```
 
 Không cần gửi file bin trừ khi cần phân tích chi tiết reliability.
+
+## 9. Kết quả H9 đã thu được
+
+Temperature:
+
+| Mô hình | Seed 42 | Seed 43 | Seed 44 |
+|---|---:|---:|---:|
+| Acoustic-only | 1,7363 | 1,6150 | 1,8606 |
+| Acoustic + prosody | 1,4316 | 1,7815 | 1,6580 |
+
+Kết quả repaired test trung bình ba seed:
+
+| Mô hình | Trạng thái | Accuracy | ECE | NLL | Brier |
+|---|---|---:|---:|---:|---:|
+| Acoustic-only | Trước | 0,3946 | 0,2920 | 2,8241 | 0,8569 |
+| Acoustic-only | Sau | 0,3946 | 0,0632 | 2,2814 | 0,7504 |
+| Acoustic + prosody | Trước | 0,4427 | 0,2453 | 2,4748 | 0,7820 |
+| Acoustic + prosody | Sau | 0,4427 | 0,0522 | 2,0714 | 0,7053 |
+
+Accuracy giữ nguyên ở toàn bộ model-seed. ECE, NLL và Brier đều giảm. Khi dùng
+một checkpoint cụ thể, phải dùng temperature tương ứng của chính checkpoint đó,
+không thay bằng temperature trung bình.
