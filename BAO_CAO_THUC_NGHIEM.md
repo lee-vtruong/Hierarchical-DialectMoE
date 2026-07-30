@@ -1746,3 +1746,63 @@ từ cùng evaluator.
 Temperature của H9 không được tái sử dụng trực tiếp vì phân phối mean-logit
 multi-crop khác first-crop. H10 đánh giá classification trước; nếu một chiến lược
 thắng ổn định, temperature mới phải được fit lại trên multi-crop validation.
+
+### 21.1 Sanity control và chi phí crop
+
+Control `first` tái tạo các metric H6 trên 2.023 mẫu ở cả ba seed. Có đúng 974
+mẫu dùng nhiều hơn một crop, khớp số audio dài hơn 20 giây trong H8.
+
+| Chiến lược | Số crop TB/mẫu | Hệ số compute tương đối |
+|---|---:|---:|
+| First | 1,000 | 1,00× |
+| Start-end | 1,481 | 1,48× |
+| Uniform-3 | 1,963 | 1,96× |
+
+Hệ số compute là xấp xỉ theo số crop đi qua backbone; chưa bao gồm overhead
+decode, padding và data loading.
+
+### 21.2 Kết quả trung bình ba seed
+
+| Chiến lược | Province accuracy | Balanced accuracy | Macro-F1 |
+|---|---:|---:|---:|
+| First | 0,4427 | 0,4469 | 0,4368 |
+| Start-end | **0,4452** | **0,4490** | **0,4395** |
+| Uniform-3 | 0,4442 | 0,4481 | 0,4388 |
+
+So với first, start-end tăng trung bình khoảng 0,247 điểm phần trăm accuracy,
+0,216 điểm balanced accuracy và 0,272 điểm macro-F1. Uniform-3 tăng tương ứng
+0,148, 0,123 và 0,195 điểm phần trăm. Mức tăng nhỏ so với variance giữa seed và
+chi phí inference bổ sung.
+
+### 21.3 Kết quả paired theo seed
+
+| Chiến lược | Seed | Chênh accuracy | Bootstrap 95% CI | McNemar p |
+|---|---:|---:|---:|---:|
+| Start-end | 42 | +0,0005 | [-0,0071; 0,0079] | 1,0000 |
+| Start-end | 43 | -0,0010 | [-0,0089; 0,0071] | 0,9022 |
+| Start-end | 44 | +0,0079 | [0,0005; 0,0154] | 0,0479 |
+| Uniform-3 | 42 | +0,0005 | [-0,0069; 0,0079] | 1,0000 |
+| Uniform-3 | 43 | -0,0010 | [-0,0096; 0,0076] | 0,9088 |
+| Uniform-3 | 44 | +0,0049 | [-0,0030; 0,0130] | 0,2820 |
+
+Hai chiến lược có cùng dấu theo seed: gần như không đổi ở seed 42, giảm nhẹ ở
+seed 43 và tăng ở seed 44. Chỉ start-end seed 44 có bootstrap CI accuracy không
+chứa 0 và McNemar p < 0,05, nhưng p = 0,0479 không qua ngưỡng Bonferroni 0,05/6
+= 0,0083 cho sáu so sánh strategy-seed. Không có cải thiện được lặp lại ở cả ba
+seed.
+
+Region accuracy chỉ thay đổi trong khoảng nhỏ và mọi confidence interval đều
+chứa 0. Multi-crop không tạo bằng chứng cải thiện cấp vùng.
+
+### 21.4 Kết luận H10
+
+Không chấp nhận giả thuyết rằng multi-crop mean-logit hiện tại cải thiện ổn định
+so với first-crop. Start-end có trung bình cao nhất nhưng lợi ích khoảng 0,25 điểm
+phần trăm không đủ chắc chắn và đổi lại compute tăng khoảng 48%. Uniform-3 tốn
+gần gấp đôi compute nhưng không tốt hơn start-end.
+
+Pipeline chính tiếp tục dùng first-crop vì đơn giản, nhanh và có kết quả ổn định.
+Kết quả seed 44 được giữ như tín hiệu exploratory: thông tin cuối audio có thể hữu
+ích ở một số checkpoint, nhưng cần thiết kế pooling/attention được huấn luyện trên
+multi-segment validation thay vì chỉ trung bình logit hậu nghiệm. Do không có
+chiến lược multi-crop thắng ổn định, không fit lại temperature H9 cho multi-crop.

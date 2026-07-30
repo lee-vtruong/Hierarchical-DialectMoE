@@ -222,3 +222,19 @@ Temperature H9 được fit cho first-crop logits, không áp dụng trực ti�
 multi-crop logits. H10 trước tiên chọn kết luận về accuracy/balanced
 accuracy/macro-F1. Chỉ khi multi-crop thắng ổn định mới sinh validation
 multi-crop prediction và fit lại temperature riêng.
+
+## 11. Kết quả H10 đã thu được
+
+| Chiến lược | Crop TB | Province accuracy | Balanced accuracy | Macro-F1 |
+|---|---:|---:|---:|---:|
+| First | 1,000 | 0,4427 | 0,4469 | 0,4368 |
+| Start-end | 1,481 | 0,4452 | 0,4490 | 0,4395 |
+| Uniform-3 | 1,963 | 0,4442 | 0,4481 | 0,4388 |
+
+Start-end tăng trung bình khoảng 0,25 điểm phần trăm accuracy nhưng không lặp lại
+theo seed. Seed 42 gần như không đổi, seed 43 giảm nhẹ và seed 44 tăng. McNemar
+seed 44 có p = 0,0479 nhưng không qua Bonferroni 0,0083 cho sáu so sánh.
+
+Không chiến lược multi-crop nào được chấp nhận thay first-crop. Pipeline chính
+giữ first-crop; không fit lại temperature cho multi-crop. Uniform-3 không phù hợp
+vì gần gấp đôi compute nhưng kém start-end về trung bình.
