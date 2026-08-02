@@ -29,3 +29,17 @@ def move_to_device(batch: dict[str, Any], device: torch.device) -> dict[str, Any
         for key, value in batch.items()
     }
 
+
+def inference_checkpoint(state: dict[str, Any]) -> dict[str, Any]:
+    """Drop optimizer state from checkpoints used only for evaluation."""
+    return {
+        key: state[key]
+        for key in (
+            "epoch",
+            "model",
+            "best_loss",
+            "best_region_accuracy",
+            "best_province_accuracy",
+            "metrics",
+        )
+    }

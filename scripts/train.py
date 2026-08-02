@@ -17,7 +17,12 @@ from dialect_moe.config import load_config
 from dialect_moe.data import DialectCollator, load_vimd
 from dialect_moe.losses import hierarchical_loss
 from dialect_moe.model import HierarchicalDialectMoE
-from dialect_moe.utils import move_to_device, save_json, seed_everything
+from dialect_moe.utils import (
+    inference_checkpoint,
+    move_to_device,
+    save_json,
+    seed_everything,
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -199,20 +204,27 @@ def main() -> None:
             ),
             "metrics": metrics,
         }
+        checkpoint_config = config["training"]
+        compact_best = bool(checkpoint_config.get("compact_best_checkpoints", False))
+        save_best_loss = bool(checkpoint_config.get("save_best_loss_checkpoint", True))
+        save_legacy_best = bool(checkpoint_config.get("save_legacy_best_checkpoint", True))
         torch.save(state, output_dir / "last.pt")
+        best_state = inference_checkpoint(state) if compact_best else state
         if metrics["loss"] < best_loss:
             best_loss, patience = metrics["loss"], 0
-            torch.save(state, output_dir / "best_loss.pt")
+            if save_best_loss:
+                torch.save(best_state, output_dir / "best_loss.pt")
             # Backward-compatible name used by the evaluation instructions.
-            torch.save(state, output_dir / "best.pt")
+            if save_legacy_best:
+                torch.save(best_state, output_dir / "best.pt")
         else:
             patience += 1
         if metrics["region_accuracy"] > best_region_accuracy:
             best_region_accuracy = metrics["region_accuracy"]
-            torch.save(state, output_dir / "best_region_accuracy.pt")
+            torch.save(best_state, output_dir / "best_region_accuracy.pt")
         if metrics["province_accuracy"] > best_province_accuracy:
             best_province_accuracy = metrics["province_accuracy"]
-            torch.save(state, output_dir / "best_province_accuracy.pt")
+            torch.save(best_state, output_dir / "best_province_accuracy.pt")
         if patience >= int(config["training"]["early_stopping_patience"]):
             print("Early stopping.")
             break

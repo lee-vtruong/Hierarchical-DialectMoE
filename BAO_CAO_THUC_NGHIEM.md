@@ -1824,6 +1824,13 @@ macro-F1 0,4107; H6 acoustic+prosody đạt lần lượt khoảng 0,8977 và 0,
 Không chọn backbone/checkpoint bằng test; kết quả test dùng để báo cáo độ tổng
 quát hóa của toàn bộ ma trận đã định trước.
 
+Do checkpoint đầy đủ chứa cả Adam optimizer state, smoke test tạo khoảng 5,3 GB
+output dù chỉ chạy 32 mẫu. Trước H11, pipeline được bổ sung compact checkpoint:
+`last.pt` giữ đầy đủ trạng thái để resume, checkpoint tốt nhất theo region và
+province chỉ giữ model/metadata, còn `best_loss.pt` và alias `best.pt` không được
+ghi cho H11. Thay đổi này không tác động phép tính train/evaluation nhưng tránh
+ma trận large-vi làm đầy filesystem dùng chung.
+
 ## 23. Phục hồi artifact sau khi server bị xóa
 
 Ngày 2026-08-02, server thực nghiệm không còn dữ liệu. Kiểm kê máy local phục hồi

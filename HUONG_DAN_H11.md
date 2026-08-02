@@ -64,6 +64,15 @@ Preflight chỉ tải/khởi tạo model, không train và không ghi checkpoint
 
 ## 4. Chọn ba GPU
 
+### Quản lý dung lượng checkpoint
+
+Các cấu hình H11 bật `compact_best_checkpoints`: `last.pt` vẫn chứa optimizer và
+scheduler để resume, còn hai checkpoint tốt nhất theo region/province chỉ chứa
+model và metadata cần cho evaluation. H11 không ghi `best_loss.pt` và `best.pt`
+vì hai file này không nằm trong ma trận đánh giá. Sau khi một run đã train và
+evaluate thành công, có thể tải `last.pt` về nơi lưu trữ khác rồi xóa bản trên
+server; không xóa hai checkpoint region/province trước khi hoàn tất tổng hợp.
+
 ```bash
 nvidia-smi --query-gpu=index,memory.used,memory.total,utilization.gpu \
   --format=csv

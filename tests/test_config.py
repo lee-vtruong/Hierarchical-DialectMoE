@@ -74,3 +74,6 @@ def test_h11_vietnamese_backbone_matrix():
         )
         assert config["training"]["batch_size"] == batch_size
         assert config["training"]["gradient_accumulation_steps"] == accumulation
+        assert config["training"]["compact_best_checkpoints"] is True
+        assert config["training"]["save_best_loss_checkpoint"] is False
+        assert config["training"]["save_legacy_best_checkpoint"] is False

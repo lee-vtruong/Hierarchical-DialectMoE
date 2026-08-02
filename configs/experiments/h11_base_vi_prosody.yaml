@@ -5,4 +5,7 @@ model:
   use_safetensors: false
 
 training:
+  compact_best_checkpoints: true
+  save_best_loss_checkpoint: false
+  save_legacy_best_checkpoint: false
   output_dir: outputs/h11_base_vi_prosody_seed42
