@@ -7,6 +7,11 @@ ViMD dataset (102.56 hours, 63 provinces).
 The repository contains code and download scripts only. Audio, model weights,
 checkpoints and experiment outputs are intentionally excluded from Git.
 
+Các CSV/JSON thực nghiệm nhỏ đã phục hồi sau sự cố mất server được lưu tại
+[`results_archive/`](results_archive/README.md), kèm checksum và ghi chú về những
+artifact không thể phục hồi. Dataset, checkpoint và prediction đầy đủ vẫn không
+được đưa vào Git.
+
 ## Model
 
 The training path is:

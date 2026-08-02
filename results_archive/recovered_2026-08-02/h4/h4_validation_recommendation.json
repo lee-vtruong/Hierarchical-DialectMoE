@@ -1,0 +1,20 @@
+{
+  "selection_split": "valid",
+  "selection_rule": "Highest province macro-F1 among non-collapsed runs; ties use province balanced accuracy then province accuracy.",
+  "collapse_threshold": 0.9,
+  "selected_experiment": "h4_lb_001_seed42",
+  "selected_load_balance_weight": 0.001,
+  "selected_metrics": {
+    "province_accuracy": 0.4978947368421053,
+    "province_balanced_accuracy": 0.49278111446797307,
+    "province_macro_f1": 0.4867280024182809,
+    "normalized_soft_router_entropy": 0.999994155337706,
+    "normalized_top1_assignment_entropy": 0.712388836681639,
+    "max_top1_assignment_fraction": 0.6431578947368422,
+    "region_expert_nmi": 0.2285253489016957,
+    "province_expert_nmi": 0.15656515292978584,
+    "collapsed": false,
+    "near_uniform_soft_router": true
+  },
+  "warning": "This recommendation is validation-only. Run seeds 42/43/44 for the selected setting before one final test evaluation."
+}

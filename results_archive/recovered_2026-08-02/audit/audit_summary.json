@@ -1,0 +1,31 @@
+{
+  "audio_mode": "none",
+  "splits": {
+    "train": {
+      "utterances": 15023,
+      "speakers": 10291,
+      "duration_seconds": null
+    },
+    "valid": {
+      "utterances": 1900,
+      "speakers": 1320,
+      "duration_seconds": null
+    },
+    "test": {
+      "utterances": 2026,
+      "speakers": 1344,
+      "duration_seconds": null
+    }
+  },
+  "cross_split_overlap": {
+    "speaker_id": {
+      "unique_values": 2,
+      "affected_utterances": 5
+    },
+    "filename": {
+      "unique_values": 0,
+      "affected_utterances": 0
+    }
+  },
+  "speaker_label_conflicts": 0
+}

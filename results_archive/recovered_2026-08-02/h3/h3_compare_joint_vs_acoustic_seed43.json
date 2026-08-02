@@ -1,0 +1,98 @@
+{
+  "baseline_file": "outputs/h3_router_acoustic_seed43/predictions_test_best_province_accuracy.jsonl",
+  "candidate_file": "outputs/h3_router_acoustic_prosody_seed43/predictions_test_best_province_accuracy.jsonl",
+  "samples": 2026,
+  "speakers": 1344,
+  "region": {
+    "baseline": {
+      "accuracy": 0.8988153998025666,
+      "balanced_accuracy": 0.8941066635083708,
+      "macro_f1": 0.8948332558532512
+    },
+    "candidate": {
+      "accuracy": 0.9027640671273445,
+      "balanced_accuracy": 0.8978927412471966,
+      "macro_f1": 0.899933714099439
+    },
+    "difference_candidate_minus_baseline": {
+      "accuracy": 0.0039486673247778326,
+      "balanced_accuracy": 0.003786077738825888,
+      "macro_f1": 0.005100458246187767
+    },
+    "speaker_bootstrap": {
+      "accuracy": {
+        "iterations": 10000,
+        "mean_difference": 0.003837816793056908,
+        "ci_95_low": -0.007038890040162995,
+        "ci_95_high": 0.014756699013521005,
+        "probability_candidate_better": 0.742
+      },
+      "balanced_accuracy": {
+        "iterations": 10000,
+        "mean_difference": 0.003672397586083975,
+        "ci_95_low": -0.007364697693043595,
+        "ci_95_high": 0.01477292102348684,
+        "probability_candidate_better": 0.7435
+      },
+      "macro_f1": {
+        "iterations": 10000,
+        "mean_difference": 0.0050011207089508646,
+        "ci_95_low": -0.006483421500320871,
+        "ci_95_high": 0.0164461644740045,
+        "probability_candidate_better": 0.8053
+      }
+    },
+    "mcnemar_accuracy": {
+      "baseline_correct_candidate_wrong": 54,
+      "baseline_wrong_candidate_correct": 62,
+      "discordant_pairs": 116,
+      "exact_p_value": 0.5159130749957949
+    }
+  },
+  "province": {
+    "baseline": {
+      "accuracy": 0.44965449160908194,
+      "balanced_accuracy": 0.45178298868579886,
+      "macro_f1": 0.44883111602011266
+    },
+    "candidate": {
+      "accuracy": 0.4422507403751234,
+      "balanced_accuracy": 0.4449329226755522,
+      "macro_f1": 0.44028847421745265
+    },
+    "difference_candidate_minus_baseline": {
+      "accuracy": -0.007403751233958533,
+      "balanced_accuracy": -0.00685006601024668,
+      "macro_f1": -0.008542641802660011
+    },
+    "speaker_bootstrap": {
+      "accuracy": {
+        "iterations": 10000,
+        "mean_difference": -0.0073822020193466216,
+        "ci_95_low": -0.02837929324713467,
+        "ci_95_high": 0.013500638940492431,
+        "probability_candidate_better": 0.2357
+      },
+      "balanced_accuracy": {
+        "iterations": 10000,
+        "mean_difference": -0.006781851241325572,
+        "ci_95_low": -0.027415223468096002,
+        "ci_95_high": 0.013324030226438867,
+        "probability_candidate_better": 0.2577
+      },
+      "macro_f1": {
+        "iterations": 10000,
+        "mean_difference": -0.008472842718369268,
+        "ci_95_low": -0.029229203367763777,
+        "ci_95_high": 0.012436687554201353,
+        "probability_candidate_better": 0.2089
+      }
+    },
+    "mcnemar_accuracy": {
+      "baseline_correct_candidate_wrong": 200,
+      "baseline_wrong_candidate_correct": 185,
+      "discordant_pairs": 385,
+      "exact_p_value": 0.47557991843346714
+    }
+  }
+}

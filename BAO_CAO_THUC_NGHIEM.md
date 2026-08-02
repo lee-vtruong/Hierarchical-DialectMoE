@@ -1823,3 +1823,21 @@ Mốc so sánh được khóa trước: bài ViMD gốc đạt region macro-F1 0
 macro-F1 0,4107; H6 acoustic+prosody đạt lần lượt khoảng 0,8977 và 0,4368.
 Không chọn backbone/checkpoint bằng test; kết quả test dùng để báo cáo độ tổng
 quát hóa của toàn bộ ma trận đã định trước.
+
+## 23. Phục hồi artifact sau khi server bị xóa
+
+Ngày 2026-08-02, server thực nghiệm không còn dữ liệu. Kiểm kê máy local phục hồi
+được 57 artifact CSV/JSON đã tải xuống trước đó, gồm audit và kết quả H3--H10.
+Các file được sao chép nguyên trạng vào `results_archive/recovered_2026-08-02/`,
+chia theo hypothesis và kèm `SHA256SUMS.txt` để kiểm tra tính toàn vẹn. Bản gốc
+trong thư mục Downloads không bị di chuyển hoặc sửa đổi.
+
+Phần không phục hồi được gồm checkpoint `.pt`, prediction-level JSONL đầy đủ,
+log huấn luyện, dataset/cache trên server và output chi tiết H1/H2 chưa từng tải
+về. Các metric, bảng và kết luận chính của H1/H2 vẫn còn trong báo cáo này. H11
+mới hoàn tất code/config/hướng dẫn; chưa có bằng chứng local cho thấy ma trận H11
+đã chạy xong, vì vậy không báo cáo kết quả H11.
+
+Kho phục hồi đủ để truy nguyên phần lớn bảng số liệu H3--H10 và tiếp tục viết
+paper, nhưng không thay thế checkpoint khi cần chạy lại inference hoặc phân tích
+prediction-level mới. Những phân tích đó sẽ yêu cầu tái huấn luyện.
