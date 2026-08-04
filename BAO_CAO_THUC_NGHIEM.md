@@ -1831,6 +1831,45 @@ province chỉ giữ model/metadata, còn `best_loss.pt` và alias `best.pt` kh�
 ghi cho H11. Thay đổi này không tác động phép tính train/evaluation nhưng tránh
 ma trận large-vi làm đầy filesystem dùng chung.
 
+Ngày 2026-08-04, H11 được chuyển sang server riêng có hai RTX 5090 32 GB, 32 CPU,
+125 GiB RAM và khoảng 712 GB trống để tránh hàng đợi/drain của cluster A100.
+Environment dùng Python 3.10, PyTorch 2.9.1 với CUDA 13.0 và nhận đúng kiến trúc
+Blackwell `sm_120`. Smoke test 32 mẫu hoàn tất trên RTX 5090 với loss 2,2216;
+region accuracy 0,96875 và province accuracy 1,0 chỉ dùng để xác nhận pipeline,
+không được đưa vào bảng kết quả nghiên cứu. Arrow cache ViMD chiếm khoảng 60 GB
+và output smoke 5,3 GB; output smoke được xóa trước full run.
+
+### 22.1 Kết quả H11-base trên test
+
+Ma trận `wav2vec2-base-vi` đã hoàn tất cho hai biến thể acoustic-only và
+acoustic+prosody với ba seed 42, 43 và 44. Bảng dưới dùng checkpoint được chọn
+trước theo province validation accuracy; số liệu là trung bình và độ lệch chuẩn
+trên ba seed.
+
+| Mô hình | Region accuracy | Region macro-F1 | Province accuracy | Province balanced accuracy | Province macro-F1 |
+|---|---:|---:|---:|---:|---:|
+| Base-VI acoustic-only | 0,9400 ± 0,0037 | 0,9387 ± 0,0037 | 0,4795 ± 0,0145 | 0,4816 ± 0,0150 | 0,4752 ± 0,0152 |
+| Base-VI acoustic+prosody | 0,9399 ± 0,0038 | 0,9386 ± 0,0039 | **0,5299 ± 0,0076** | **0,5318 ± 0,0071** | **0,5264 ± 0,0051** |
+
+Prosody cải thiện province accuracy **5,04 điểm phần trăm**, province balanced
+accuracy **5,01 điểm phần trăm** và province macro-F1 **5,12 điểm phần trăm**.
+Cả ba seed đều tăng province accuracy: +5,34; +4,25 và +5,54 điểm phần trăm.
+Ngược lại, region accuracy và region macro-F1 gần như không đổi (chênh lệch lần
+lượt -0,02 và -0,01 điểm phần trăm). Kết quả này lặp lại kết luận H6: prosody
+chủ yếu hữu ích cho phân biệt phương ngữ cấp tỉnh thay vì bài toán ba vùng.
+
+So với mốc công bố của ViMD (region macro-F1 0,9147; province macro-F1 0,4107),
+Base-VI acoustic+prosody cao hơn lần lượt **2,39** và **11,57 điểm phần trăm**.
+So với H6 acoustic+prosody (xấp xỉ 0,8977 và 0,4368), mức tăng tương ứng là
+**4,09** và **8,96 điểm phần trăm**. So sánh với bài gốc chỉ được xem là đối
+chiếu theo số liệu công bố cho đến khi xác nhận hoàn toàn tính tương đồng của
+split, label mapping và protocol đánh giá.
+
+Các checkpoint theo region và province trùng nhau ở một số run; đây là trường
+hợp hợp lệ khi cùng một epoch đồng thời tối ưu cả hai tiêu chí. Router có entropy
+chuẩn hóa cao và không tham gia tạo prediction trong các baseline này, nên không
+dùng router entropy để diễn giải chuyên môn hóa expert.
+
 ## 23. Phục hồi artifact sau khi server bị xóa
 
 Ngày 2026-08-02, server thực nghiệm không còn dữ liệu. Kiểm kê máy local phục hồi
