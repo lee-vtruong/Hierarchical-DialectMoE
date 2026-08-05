@@ -2015,7 +2015,29 @@ của replicate trong khi vẫn xuất hiện trong prediction. Warning không l
 phép tính; accuracy/McNemar không bị ảnh hưởng. Balanced accuracy và macro-F1
 được diễn giải cùng CI, kết quả ba seed và paired accuracy thay vì đứng riêng.
 
-## 24. Phục hồi artifact sau khi server bị xóa
+## 24. Thiết kế H13: phân tích mô hình cuối và efficiency
+
+Sau khi H12 xác nhận Large-VI acoustic+prosody tốt hơn có ý nghĩa ở cấp tỉnh,
+H13 khóa cấu hình này làm candidate cuối và dùng Large-VI acoustic-only làm đối
+chứng. H13 không huấn luyện lại, không chọn checkpoint hoặc hyperparameter bằng
+test. Phân tích gồm:
+
+- Accuracy và chuyển trạng thái fixed/regressed theo từng tỉnh qua ba seed.
+- Các confusion pair tăng hoặc giảm khi thêm prosody.
+- ECE, NLL, Brier score và confidence trước calibration.
+- Scalar temperature scaling fit riêng trên repaired validation của từng seed,
+  sau đó áp dụng nguyên trạng lên repaired test.
+- Kích thước checkpoint, số tham số và benchmark forward pass có kiểm soát trên
+  cùng RTX 5090, batch size 1 và cùng tập 64 mẫu.
+
+Temperature scaling phải bảo toàn argmax nên không thay đổi accuracy. Mục tiêu
+là cải thiện chất lượng xác suất, không cải thiện classification bằng test-time
+tuning. Benchmark loại thời gian đọc disk và preprocessing CPU; vì vậy chỉ dùng
+để so sánh tương đối các cấu hình trên cùng server, không được mô tả là latency
+end-to-end trong triển khai. Script và quy trình nằm trong `scripts/analyze_h13.py`,
+`scripts/benchmark_h13.py` và `HUONG_DAN_H13.md`.
+
+## 25. Phục hồi artifact sau khi server bị xóa
 
 Ngày 2026-08-02, server thực nghiệm không còn dữ liệu. Kiểm kê máy local phục hồi
 được 57 artifact CSV/JSON đã tải xuống trước đó, gồm audit và kết quả H3--H10.
