@@ -1,0 +1,21 @@
+{
+  "hypothesis": "Large Vietnamese pretraining and explicit prosody improve paired region/province predictions on the locked H11 test set.",
+  "seeds": [
+    42,
+    43,
+    44
+  ],
+  "bootstrap_iterations": 10000,
+  "multiple_testing": "Holm correction over 12 McNemar tests separately for each task (4 contrasts x 3 seeds).",
+  "contrasts": [
+    "base_prosody_vs_acoustic",
+    "large_prosody_vs_acoustic",
+    "large_vs_base_acoustic",
+    "large_vs_base_prosody"
+  ],
+  "files": {
+    "per_seed": "results_archive/h12/h12_per_seed.csv",
+    "aggregate": "results_archive/h12/h12_aggregate.csv",
+    "details": "results_archive/h12/h12_details.json"
+  }
+}

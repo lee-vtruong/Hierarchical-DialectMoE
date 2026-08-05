@@ -1953,6 +1953,68 @@ CI 95% không chứa 0 và vẫn có ý nghĩa sau hiệu chỉnh đa kiểm đ�
 được sinh bởi `scripts/analyze_h12.py`; hướng dẫn tái lập nằm trong
 `HUONG_DAN_H12.md`.
 
+### 23.1 Kết quả H12 cấp tỉnh
+
+H12 chạy thành công trên 2.023 utterance và 1.342 speaker ở mỗi seed. Bảng dưới
+dùng trung bình ba seed; chênh lệch luôn là candidate trừ baseline.
+
+| Contrast | Baseline Acc. | Candidate Acc. | Δ Acc. | Δ Balanced Acc. | Δ Macro-F1 | CI Acc. loại 0 | Holm-McNemar |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Base prosody vs acoustic | 0,4795 | 0,5299 | **+0,0504** | **+0,0501** | **+0,0512** | 3/3 | 3/3 |
+| Large prosody vs acoustic | 0,5500 | 0,5988 | **+0,0488** | **+0,0484** | **+0,0539** | 3/3 | 3/3 |
+| Large vs Base acoustic | 0,4795 | 0,5500 | **+0,0705** | **+0,0705** | **+0,0659** | 3/3 | 3/3 |
+| Large vs Base prosody | 0,5299 | 0,5988 | **+0,0689** | **+0,0688** | **+0,0686** | 3/3 | 3/3 |
+
+Cả bốn contrast đều dương ở 3/3 seed cho accuracy, balanced accuracy và
+macro-F1. Toàn bộ **12/12** speaker-bootstrap CI 95% cấp tỉnh không chứa 0 và
+**12/12** exact McNemar vẫn có ý nghĩa ở mức 0,05 sau Holm correction trên family
+12 test. Xác suất candidate tốt hơn trong bootstrap bằng 1,0 ở gần như toàn bộ
+metric; trường hợp thấp nhất vẫn là 0,9993.
+
+Theo từng seed, prosody tăng province accuracy của Base-VI từ 4,25 đến 5,54 điểm
+phần trăm và của Large-VI từ 4,35 đến 5,44 điểm. Chuyển Base sang Large tăng từ
+4,65 đến 9,54 điểm với acoustic-only và từ 5,24 đến 8,35 điểm với prosody. Vì
+hiệu ứng cùng dấu, CI loại 0 và McNemar qua hiệu chỉnh ở tất cả seed, kết luận
+không phụ thuộc vào một initialization riêng lẻ.
+
+### 23.2 Kết quả H12 cấp vùng
+
+Các hiệu ứng region nhỏ và đổi dấu giữa seed:
+
+| Contrast | Δ Region Acc. | Δ Region Balanced Acc. | Δ Region Macro-F1 | CI Acc. loại 0 | Holm-McNemar |
+|---|---:|---:|---:|---:|---:|
+| Base prosody vs acoustic | -0,0002 | -0,0003 | -0,0001 | 0/3 | 0/3 |
+| Large prosody vs acoustic | +0,0028 | +0,0022 | +0,0027 | 0/3 | 0/3 |
+| Large vs Base acoustic | -0,0003 | +0,0012 | -0,0002 | 0/3 | 0/3 |
+| Large vs Base prosody | +0,0026 | +0,0038 | +0,0026 | 0/3 | 0/3 |
+
+Không có speaker-bootstrap CI accuracy cấp vùng nào loại trừ 0 và không có
+McNemar test nào có ý nghĩa sau Holm correction (**0/12**). Vì vậy không đủ bằng
+chứng rằng prosody hoặc backbone Large cải thiện nhận diện ba vùng, dù trung bình
+một số contrast dương. Đây là biểu hiện hợp lý của bài toán vùng gần bão hòa ở
+mức khoảng 94% accuracy.
+
+### 23.3 Kết luận H12
+
+H12 xác nhận thống kê hai đóng góp độc lập cho nhận diện 63 tỉnh:
+
+1. Prosody tạo thêm khoảng 4,9--5,4 điểm phần trăm tùy metric trên cả Base-VI và
+   Large-VI.
+2. Tăng backbone từ Base-VI lên Large-VI tạo thêm khoảng 6,6--7,1 điểm phần trăm
+   trên cả acoustic-only và acoustic+prosody.
+
+Hai đóng góp cộng hưởng nhưng không được diễn giải là hiệu ứng MoE, vì H11 tắt
+`use_moe` và `use_hierarchical_router`. Mô hình cuối cho mục tiêu 63 tỉnh là
+Large-VI acoustic+prosody với checkpoint `best_province_accuracy`. Đối với ba
+vùng, các mô hình có hiệu năng tương đương về mặt thống kê; không nên tuyên bố
+Large hoặc prosody tốt hơn dựa chỉ trên chênh lệch trung bình nhỏ.
+
+Warning `y_pred contains classes not in y_true` xuất hiện ở một số bootstrap
+replicate vì resampling theo speaker có thể làm một lớp vắng khỏi ground truth
+của replicate trong khi vẫn xuất hiện trong prediction. Warning không làm dừng
+phép tính; accuracy/McNemar không bị ảnh hưởng. Balanced accuracy và macro-F1
+được diễn giải cùng CI, kết quả ba seed và paired accuracy thay vì đứng riêng.
+
 ## 24. Phục hồi artifact sau khi server bị xóa
 
 Ngày 2026-08-02, server thực nghiệm không còn dữ liệu. Kiểm kê máy local phục hồi
