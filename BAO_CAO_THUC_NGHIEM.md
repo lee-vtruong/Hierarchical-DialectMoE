@@ -1870,6 +1870,70 @@ hợp hợp lệ khi cùng một epoch đồng thời tối ưu cả hai tiêu c
 chuẩn hóa cao và không tham gia tạo prediction trong các baseline này, nên không
 dùng router entropy để diễn giải chuyên môn hóa expert.
 
+### 22.2 Kết quả chính thức H11-large qua ba seed
+
+Ma trận `wav2vec2-large-vi` đã hoàn tất với acoustic-only và acoustic+prosody ở
+ba seed 42, 43 và 44. Bảng chính dùng checkpoint được chọn trước theo province
+validation accuracy; số liệu là trung bình và độ lệch chuẩn trên ba seed.
+
+| Mô hình | Region accuracy | Region macro-F1 | Province accuracy | Province balanced accuracy | Province macro-F1 |
+|---|---:|---:|---:|---:|---:|
+| Large-VI acoustic-only | 0,9397 ± 0,0051 | 0,9385 ± 0,0049 | 0,5500 ± 0,0117 | 0,5522 ± 0,0117 | 0,5411 ± 0,0144 |
+| Large-VI acoustic+prosody | **0,9425 ± 0,0020** | **0,9412 ± 0,0018** | **0,5988 ± 0,0082** | **0,6006 ± 0,0082** | **0,5950 ± 0,0072** |
+
+Prosody cải thiện Large-VI trung bình **4,88 điểm phần trăm province accuracy**,
+**4,84 điểm province balanced accuracy** và **5,39 điểm province macro-F1**.
+Hiệu quả cấp vùng nhỏ hơn nhưng vẫn dương, khoảng 0,27--0,28 điểm phần trăm.
+Province accuracy của acoustic+prosody đạt 0,5986; 0,5907 và 0,6070 ở seed
+42/43/44, cho thấy mức tăng không phụ thuộc vào một initialization thuận lợi.
+
+### 22.3 Đóng góp của kích thước backbone
+
+So sánh bằng checkpoint province tương ứng:
+
+| Biến thể | Chỉ số | Base-VI | Large-VI | Large - Base |
+|---|---|---:|---:|---:|
+| Acoustic-only | Province accuracy | 0,4795 | 0,5500 | **+0,0705** |
+| Acoustic-only | Province macro-F1 | 0,4752 | 0,5411 | **+0,0659** |
+| Acoustic+prosody | Province accuracy | 0,5299 | 0,5988 | **+0,0689** |
+| Acoustic+prosody | Province macro-F1 | 0,5264 | 0,5950 | **+0,0686** |
+
+Large-VI tạo mức tăng khoảng 6,6--7,1 điểm phần trăm ở cấp tỉnh cho cả hai biến
+thể. Với acoustic-only, region macro-F1 gần như không đổi so với Base-VI
+(-0,02 điểm phần trăm), trong khi acoustic+prosody tăng khoảng 0,26 điểm. Điều
+này cho thấy năng lực bổ sung của backbone lớn chủ yếu được dùng để phân biệt
+các lớp tỉnh tinh vi hơn, thay vì bài toán ba vùng vốn đã gần bão hòa.
+
+### 22.4 So sánh với H6 và mốc ViMD công bố
+
+Large-VI acoustic+prosody vượt H6 acoustic+prosody trên repaired test khoảng
+**15,60 điểm phần trăm province accuracy**, **15,37 điểm province balanced
+accuracy** và **15,82 điểm province macro-F1**. Region macro-F1 tăng khoảng
+4,35 điểm phần trăm.
+
+So với mốc ViMD công bố (region macro-F1 0,9147; province macro-F1 0,4107), cấu
+hình tốt nhất đạt 0,9412 và 0,5950, cao hơn lần lượt **2,65** và **18,43 điểm phần
+trăm**. Đây là đối chiếu với số liệu công bố, chưa được gọi là so sánh đối đầu
+hoàn toàn cho đến khi xác nhận giống nhau về split, label mapping, preprocessing,
+checkpoint selection và protocol đánh giá.
+
+### 22.5 Ảnh hưởng của tiêu chí chọn checkpoint và kết luận H11
+
+Checkpoint tốt nhất theo province validation accuracy luôn cho kết quả cấp tỉnh
+cao hơn trung bình so với checkpoint chọn theo region accuracy. Ví dụ Large-VI
+acoustic+prosody đạt province macro-F1 0,5950 với checkpoint province, so với
+0,5745 với checkpoint region. Vì mục tiêu chính là nhận diện 63 tỉnh, bảng kết
+quả chính và mô hình đề xuất dùng `best_province_accuracy`.
+
+**Kết luận H11:** backbone pretrained chuyên biệt tiếng Việt tạo cải thiện lớn
+và lặp lại ở cấp tỉnh; prosody tiếp tục bổ sung khoảng năm điểm phần trăm ngay cả
+khi backbone đã tăng từ Base lên Large. Cấu hình mạnh nhất hiện tại là
+`wav2vec2-large-vi` acoustic+prosody, không dùng MoE và không dùng hierarchical
+router để tạo prediction. Do đó không quy mức tăng H11 cho Mixture-of-Experts.
+Bước xác nhận tiếp theo là kiểm định paired ở mức utterance/speaker giữa
+Large-VI và Base-VI, cũng như giữa acoustic+prosody và acoustic-only, sử dụng
+prediction đã khóa và không điều chỉnh thêm trên test.
+
 ## 23. Phục hồi artifact sau khi server bị xóa
 
 Ngày 2026-08-02, server thực nghiệm không còn dữ liệu. Kiểm kê máy local phục hồi
