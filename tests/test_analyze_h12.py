@@ -1,5 +1,6 @@
 import csv
 import json
+import subprocess
 import sys
 
 from scripts import analyze_h12
@@ -28,6 +29,16 @@ def test_holm_adjust_is_monotonic_and_bounded():
     adjusted = analyze_h12.holm_adjust([0.01, 0.04, 0.02, 0.5])
     assert adjusted == [0.04, 0.08, 0.06, 0.5]
     assert all(0 <= value <= 1 for value in adjusted)
+
+
+def test_script_entrypoint_help():
+    result = subprocess.run(
+        [sys.executable, str(analyze_h12.__file__), "--help"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    assert "H12 paired" in result.stdout
 
 
 def test_h12_end_to_end(tmp_path, monkeypatch):
