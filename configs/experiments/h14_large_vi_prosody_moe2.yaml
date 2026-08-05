@@ -1,0 +1,15 @@
+extends: h11_large_vi_prosody.yaml
+
+model:
+  use_hierarchical_router: true
+  use_moe: true
+  router_input: acoustic_prosody
+  num_experts: 2
+  top_k: 1
+
+training:
+  output_dir: outputs/h14_large_vi_prosody_moe2_seed42
+
+loss:
+  router_weight: 0.0
+  load_balance_weight: 0.001

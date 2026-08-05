@@ -2149,7 +2149,34 @@ nhẹ; với mục tiêu chất lượng nghiên cứu, Large-VI acoustic+prosod
 nếu có phải được mô tả là future work hoặc một protocol mới, không tiếp tục chọn
 mô hình dựa trên repaired test hiện tại.
 
-## 25. Phục hồi artifact sau khi server bị xóa
+## 25. Thiết kế H14: xác nhận MoE trên backbone Large-VI
+
+H14 được mở như một protocol xác nhận mới sau khi H11--H13 đã khóa baseline
+Large-VI acoustic+prosody. Mục tiêu là kiểm tra liệu MoE còn tạo giá trị khi
+backbone và prosody đã mạnh, thay vì suy rộng từ MoE chạy trên backbone tổng quát
+ở H1--H4.
+
+Để tránh tiếp tục tối ưu theo repaired test, H14 chỉ chạy một cấu hình được định
+trước từ bằng chứng cũ: hierarchical MoE-2, top-1 routing, router nhận acoustic +
+prosody và region context, `router_weight=0`, `load_balance_weight=0.001`. Cấu
+hình dùng `wav2vec2-large-vi`, gated fusion, repaired speaker-disjoint split,
+checkpoint chọn theo province validation accuracy và seed 42/43/44. Không sweep
+số expert, top-k hoặc loss weight trong H14.
+
+Đối chứng paired là H11 Large-VI acoustic+prosody không MoE cùng seed. Sau khi
+khóa checkpoint bằng validation, test được đánh giá đúng một lần cho mỗi seed.
+Phân tích dùng speaker-bootstrap 10.000 vòng và exact McNemar, với Holm correction
+trên ba seed riêng cho region và province. Routing diagnostics gồm entropy chuẩn
+hóa, effective experts, mean expert probability, region-to-expert và
+province-to-expert matrix.
+
+Tiêu chí kết luận: MoE chỉ được xem là cải thiện xác nhận nếu hiệu ứng province
+dương ổn định ở ba seed, bootstrap CI loại 0 và McNemar vẫn có ý nghĩa sau hiệu
+chỉnh. Nếu chỉ một seed tăng hoặc routing collapse, H14 được báo cáo như kết quả
+âm tính; không mở thêm sweep trên cùng test. Code và quy trình nằm trong ba config
+`h14_large_vi_prosody_moe2*`, `scripts/analyze_h14.py` và `HUONG_DAN_H14.md`.
+
+## 26. Phục hồi artifact sau khi server bị xóa
 
 Ngày 2026-08-02, server thực nghiệm không còn dữ liệu. Kiểm kê máy local phục hồi
 được 57 artifact CSV/JSON đã tải xuống trước đó, gồm audit và kết quả H3--H10.
