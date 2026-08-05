@@ -1,0 +1,25 @@
+{
+  "config": "configs/experiments/h11_base_vi_prosody.yaml",
+  "checkpoint": "outputs/h11_base_vi_prosody_seed42/best_province_accuracy.pt",
+  "backbone": "nguyenvulebinh/wav2vec2-base-vi",
+  "use_prosody": true,
+  "split": "test",
+  "samples": 64,
+  "batch_size": 1,
+  "warmup_repeats": 1,
+  "timed_repeats": 3,
+  "elapsed_seconds": [
+    0.6364445040089777,
+    0.6343500080110971,
+    0.6232024089986226
+  ],
+  "mean_seconds": 0.6313323070062324,
+  "samples_per_second": 101.37292086870536,
+  "milliseconds_per_sample": 9.864567296972382,
+  "peak_cuda_memory_mib": 705.2236328125,
+  "gpu": "NVIDIA GeForce RTX 5090",
+  "torch": "2.9.1+cu130",
+  "total_parameters": 98428362,
+  "trainable_parameters": 94227914,
+  "backbone_parameters": 94371712
+}

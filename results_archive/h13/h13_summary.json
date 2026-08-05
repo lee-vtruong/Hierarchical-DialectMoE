@@ -1,0 +1,20 @@
+{
+  "hypothesis": "Large-VI explicit prosody changes province-level errors and calibration relative to Large-VI acoustic-only.",
+  "baseline": "h11_large_vi_acoustic best_province_accuracy",
+  "candidate": "h11_large_vi_prosody best_province_accuracy",
+  "seeds": [
+    42,
+    43,
+    44
+  ],
+  "test_prediction_status": "complete",
+  "calibration_status": "completed_validation_fitted_temperature_scaling",
+  "calibration_fit_split": "repaired validation",
+  "calibration_evaluation_split": "repaired test",
+  "outputs": {
+    "error_analysis": "results_archive/h13/error_analysis",
+    "calibration": "results_archive/h13/calibration",
+    "artifact_metadata": "results_archive/h13/h13_artifact_metadata.csv"
+  },
+  "efficiency_note": "Checkpoint size is descriptive storage metadata, not inference speed. Latency requires a separately controlled GPU benchmark."
+}

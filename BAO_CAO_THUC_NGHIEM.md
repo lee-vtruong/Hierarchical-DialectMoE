@@ -2037,6 +2037,118 @@ tuning. Benchmark loại thời gian đọc disk và preprocessing CPU; vì vậ
 end-to-end trong triển khai. Script và quy trình nằm trong `scripts/analyze_h13.py`,
 `scripts/benchmark_h13.py` và `HUONG_DAN_H13.md`.
 
+### 24.1 Kết quả calibration H13
+
+Temperature được fit độc lập trên repaired validation của từng seed rồi áp dụng
+nguyên trạng lên repaired test. Trung bình temperature là 1,4940 cho Large-VI
+acoustic-only và 1,4911 cho Large-VI acoustic+prosody. Cả hai giá trị lớn hơn 1,
+cho thấy logit gốc quá sắc và mô hình có xu hướng overconfident.
+
+| Mô hình | Test Acc. | ECE trước | ECE sau | NLL trước | NLL sau | Brier trước | Brier sau |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Large-VI acoustic | 0,5500 | 0,1744 | **0,0432** | 1,8604 | **1,6349** | 0,6241 | **0,5818** |
+| Large-VI acoustic+prosody | **0,5988** | 0,1608 | **0,0484** | 1,6708 | **1,4615** | 0,5645 | **0,5266** |
+
+Temperature scaling bảo toàn accuracy như yêu cầu. ECE giảm khoảng 75,3% cho
+acoustic-only và 69,9% cho acoustic+prosody; NLL và Brier score cũng giảm ở cả
+hai cấu hình. Sau calibration, confidence trung bình giảm từ 0,7243 xuống 0,5801
+cho acoustic-only và từ 0,7595 xuống 0,6245 cho acoustic+prosody, gần hơn đáng kể
+với accuracy tương ứng. Candidate prosody có NLL và Brier tốt hơn acoustic-only
+cả trước lẫn sau calibration; ECE sau calibration hơi cao hơn 0,0053, vì vậy
+không tuyên bố candidate tốt hơn trên mọi thước đo calibration.
+
+### 24.2 Phân tích cấp tỉnh của mô hình cuối
+
+Prosody tạo cải thiện lớn và nhất quán nhất ở các province code 22 (+0,2941,
+3/3 seed), 17 (+0,1818, 3/3), 86 (+0,1818, 3/3), 59 (+0,1667, 3/3), 18
+(+0,1613, 3/3), 47 (+0,1569, 3/3), 26 (+0,1524, 3/3) và 81 (+0,1515,
+3/3). Code 22 có 33 lượt fixed và chỉ 3 lượt regressed qua ba seed; code 86 có
+18 fixed và không có regression.
+
+Các suy giảm lớn nhất là code 38 (-0,1010), 93 (-0,0857), 24 (-0,0702), 36
+(-0,0690) và 89 (-0,0667). Trong đó code 36 giảm ở 3/3 seed, không có lượt fixed
+và có 6 lượt regressed; đây là failure case nhất quán cần phân tích confusion và
+đặc trưng prosody. Phần lớn tỉnh suy giảm còn lại đổi dấu hoặc hòa ở ít nhất một
+seed, nên không được diễn giải như hiệu ứng phổ quát chỉ từ trung bình theo tỉnh.
+
+Kết quả củng cố nhận xét H7: prosody tạo lợi ích tổng thể có ý nghĩa nhưng phân
+bố không đều theo địa phương. Mô hình cuối nên đi kèm bảng per-province và
+confusion analysis, thay vì chỉ báo cáo một con số accuracy tổng hợp.
+
+### 24.3 Efficiency trên RTX 5090
+
+Benchmark dùng cùng 64 mẫu, batch size 1, một lượt warm-up và ba lượt đo; thời
+gian đọc disk cùng preprocessing CPU được loại khỏi vùng timing. Ba cấu hình chạy
+tuần tự trên cùng NVIDIA GeForce RTX 5090 để tránh tranh chấp GPU.
+
+| Cấu hình | Tham số | Mẫu/giây | ms/mẫu | Peak CUDA MiB |
+|---|---:|---:|---:|---:|
+| Base-VI acoustic+prosody | 98.428.362 | **101,37** | **9,86** | **705,22** |
+| Large-VI acoustic-only | 319.560.906 | 45,88 | 21,80 | 1.672,55 |
+| Large-VI acoustic+prosody | 319.560.906 | 45,86 | 21,80 | 1.672,55 |
+
+Large-VI có khoảng **3,25 lần** số tham số, latency khoảng **2,21 lần** và peak
+CUDA memory khoảng **2,37 lần** Base-VI. Throughput còn khoảng 45,2% Base-VI.
+Đổi lại, H11/H12 cho thấy Large-VI acoustic+prosody tăng khoảng 6,89 điểm phần
+trăm province accuracy và 6,86 điểm province macro-F1 so với Base-VI
+acoustic+prosody, với hiệu ứng có ý nghĩa ở 3/3 seed.
+
+Trong cùng backbone Large, thêm prosody thay đổi throughput dưới 0,04%, latency
+dưới 0,04% và không làm tăng peak memory ở độ chính xác hiển thị. Tổng số tham số
+được báo cáo bằng nhau vì implementation giữ module prosody trong kiến trúc để
+tương thích checkpoint, kể cả khi `use_prosody=false`; nhánh này được bypass
+trong forward acoustic-only. Vì vậy kết luận phù hợp là prosody tạo mức tăng chất
+lượng gần năm điểm phần trăm với overhead forward đo được không đáng kể, còn chi
+phí chính đến từ việc nâng Base-VI lên Large-VI.
+
+Các số trên là model-forward benchmark trên một RTX 5090, không gồm I/O,
+preprocessing, batching động hay network. Không được mô tả như latency
+end-to-end của hệ thống triển khai và không so trực tiếp với latency được đo trên
+phần cứng khác.
+
+### 24.4 Chuyển trạng thái và confusion pair
+
+Trên tổng 6.069 lượt dự đoán của ba seed, Large-VI acoustic+prosody sửa đúng 568
+trường hợp mà acoustic-only dự đoán sai, đồng thời làm sai lại 272 trường hợp mà
+acoustic-only đúng. Lợi ròng là **296 lượt dự đoán đúng**, tương ứng chính xác với
+mức tăng trung bình 4,88 điểm phần trăm province accuracy trong H11/H12.
+
+| Seed | Both correct | Fixed | Regressed | Both wrong | Lợi ròng |
+|---:|---:|---:|---:|---:|---:|
+| 42 | 1.018 | 193 | 83 | 729 | +110 |
+| 43 | 998 | 197 | 99 | 729 | +98 |
+| 44 | 1.050 | 178 | 90 | 705 | +88 |
+| **Tổng** | **3.066** | **568** | **272** | **2.163** | **+296** |
+
+Các confusion pair giảm nhiều nhất khi thêm prosody là 49→81 (-23 lượt),
+94→83 (-22), 78→77 (-15), 73→38 (-13) và 12→11 (-12). Các pair tăng nhiều
+nhất là 93→47 (+13), 99→20 (+10), 94→66 (+9), 12→20 (+9) và 90→20 (+9).
+
+Một số thay đổi phản ánh lỗi được giải quyết rõ, ví dụ 49→81 và 78→77 gần như
+biến mất. Tuy nhiên, một số lớp chỉ dịch chuyển đích nhầm: lỗi 94→83 giảm mạnh
+nhưng 94→66 và 94→95 tăng; lỗi 12→11 giảm nhưng 12→20 và 12→99 tăng. Vì vậy
+prosody không đơn thuần tách tốt hơn mọi cặp, mà tái định hình decision boundary.
+Các pair 93→47, 38→73, 48→47 và 24→21 là failure cases ưu tiên cho phân tích
+định tính audio hoặc thiết kế fusion theo lớp trong nghiên cứu tiếp theo.
+
+### 24.5 Tính toàn vẹn artifact và kết luận H13
+
+H13 xác nhận đủ 2.023 test prediction và 1.903 validation prediction cho mỗi cấu
+hình/seed. Sáu checkpoint `best_province_accuracy.pt` đều tồn tại và có kích
+thước khoảng 1.219,22 MiB mỗi file. Calibration được fit đúng trên validation,
+không dùng test để chọn temperature và không thay đổi argmax.
+
+**Kết luận H13:** Large-VI acoustic+prosody là lựa chọn cuối hợp lý cho mục tiêu
+63 tỉnh: tăng accuracy có ý nghĩa và lặp lại, cải thiện NLL/Brier, có thể giảm
+overconfidence hiệu quả bằng temperature scaling, trong khi overhead riêng của
+prosody gần như không đo được so với cùng backbone. Đánh đổi chính là backbone
+Large chậm khoảng 2,21 lần và dùng khoảng 2,37 lần peak CUDA memory so với
+Base-VI. Với triển khai ưu tiên tốc độ, Base-VI acoustic+prosody vẫn là phương án
+nhẹ; với mục tiêu chất lượng nghiên cứu, Large-VI acoustic+prosody là mô hình
+được đề xuất. H13 kết thúc chuỗi thí nghiệm xác nhận chính; các thử nghiệm sau
+nếu có phải được mô tả là future work hoặc một protocol mới, không tiếp tục chọn
+mô hình dựa trên repaired test hiện tại.
+
 ## 25. Phục hồi artifact sau khi server bị xóa
 
 Ngày 2026-08-02, server thực nghiệm không còn dữ liệu. Kiểm kê máy local phục hồi
