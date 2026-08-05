@@ -1934,7 +1934,26 @@ Bước xác nhận tiếp theo là kiểm định paired ở mức utterance/sp
 Large-VI và Base-VI, cũng như giữa acoustic+prosody và acoustic-only, sử dụng
 prediction đã khóa và không điều chỉnh thêm trên test.
 
-## 23. Phục hồi artifact sau khi server bị xóa
+## 23. Thiết kế H12: kiểm định paired cho H11
+
+H12 dùng 12 prediction của checkpoint `best_province_accuracy` đã khóa trong
+H11, không huấn luyện lại và không chọn hyperparameter trên test. Bốn contrast
+được định trước nhằm tách riêng đóng góp của prosody và kích thước backbone:
+
+1. Base-VI prosody so với Base-VI acoustic.
+2. Large-VI prosody so với Large-VI acoustic.
+3. Large-VI acoustic so với Base-VI acoustic.
+4. Large-VI prosody so với Base-VI prosody.
+
+Mỗi contrast được chạy ở seed 42/43/44 cho cả region và province. Phân tích dùng
+speaker-bootstrap 10.000 vòng cho accuracy, balanced accuracy và macro-F1; exact
+McNemar cho accuracy; và Holm correction riêng trên family 12 McNemar test của
+mỗi task. Một hiệu ứng được xem là lặp lại mạnh khi cùng dấu ở 3/3 seed, bootstrap
+CI 95% không chứa 0 và vẫn có ý nghĩa sau hiệu chỉnh đa kiểm định. Kết quả H12 sẽ
+được sinh bởi `scripts/analyze_h12.py`; hướng dẫn tái lập nằm trong
+`HUONG_DAN_H12.md`.
+
+## 24. Phục hồi artifact sau khi server bị xóa
 
 Ngày 2026-08-02, server thực nghiệm không còn dữ liệu. Kiểm kê máy local phục hồi
 được 57 artifact CSV/JSON đã tải xuống trước đó, gồm audit và kết quả H3--H10.
