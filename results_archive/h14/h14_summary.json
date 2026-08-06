@@ -1,0 +1,56 @@
+{
+  "baseline": "H11 Large-VI acoustic+prosody without MoE",
+  "candidate": "H14 Large-VI acoustic+prosody hierarchical MoE-2 top-1",
+  "selection": "best province validation accuracy; test evaluated once",
+  "load_balance_weight": 0.001,
+  "router_entropy_weight": 0.0,
+  "seeds": [
+    42,
+    43,
+    44
+  ],
+  "bootstrap_iterations": 10000,
+  "multiple_testing": "Holm correction over three McNemar tests per task",
+  "aggregate": [
+    {
+      "task": "region",
+      "runs": 3,
+      "baseline_accuracy_mean": 0.9424946449167901,
+      "candidate_accuracy_mean": 0.941506014170374,
+      "difference_accuracy_mean": -0.0009886307464161599,
+      "candidate_better_accuracy_runs": 1,
+      "bootstrap_ci_excludes_zero_accuracy_runs": 0,
+      "baseline_balanced_accuracy_mean": 0.9409620657612253,
+      "candidate_balanced_accuracy_mean": 0.9405210178662163,
+      "difference_balanced_accuracy_mean": -0.00044104789500905756,
+      "candidate_better_balanced_accuracy_runs": 1,
+      "bootstrap_ci_excludes_zero_balanced_accuracy_runs": 0,
+      "baseline_macro_f1_mean": 0.9412247819398782,
+      "candidate_macro_f1_mean": 0.940378948891973,
+      "difference_macro_f1_mean": -0.0008458330479051238,
+      "candidate_better_macro_f1_runs": 1,
+      "bootstrap_ci_excludes_zero_macro_f1_runs": 0,
+      "mcnemar_holm_significant_runs": 0
+    },
+    {
+      "task": "province",
+      "runs": 3,
+      "baseline_accuracy_mean": 0.5987806887460866,
+      "candidate_accuracy_mean": 0.6005931784478498,
+      "difference_accuracy_mean": 0.0018124897017630648,
+      "candidate_better_accuracy_runs": 2,
+      "bootstrap_ci_excludes_zero_accuracy_runs": 0,
+      "baseline_balanced_accuracy_mean": 0.6006028569679885,
+      "candidate_balanced_accuracy_mean": 0.6022163616088296,
+      "difference_balanced_accuracy_mean": 0.0016135046408409792,
+      "candidate_better_balanced_accuracy_runs": 2,
+      "bootstrap_ci_excludes_zero_balanced_accuracy_runs": 2,
+      "baseline_macro_f1_mean": 0.5950146357696793,
+      "candidate_macro_f1_mean": 0.595761108364689,
+      "difference_macro_f1_mean": 0.0007464725950097432,
+      "candidate_better_macro_f1_runs": 2,
+      "bootstrap_ci_excludes_zero_macro_f1_runs": 2,
+      "mcnemar_holm_significant_runs": 0
+    }
+  ]
+}

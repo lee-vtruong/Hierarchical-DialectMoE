@@ -2176,6 +2176,68 @@ chỉnh. Nếu chỉ một seed tăng hoặc routing collapse, H14 được báo
 âm tính; không mở thêm sweep trên cùng test. Code và quy trình nằm trong ba config
 `h14_large_vi_prosody_moe2*`, `scripts/analyze_h14.py` và `HUONG_DAN_H14.md`.
 
+### 25.1 Kết quả H14 qua ba seed
+
+H14 hoàn tất ba seed và được so sánh paired với H11 Large-VI acoustic+prosody
+không MoE. Bảng dùng checkpoint chọn theo province validation accuracy.
+
+| Task | Baseline Acc. | MoE-2 Acc. | Δ Acc. | Δ Macro-F1 | Seed Acc. tăng | CI Acc. loại 0 | Holm-McNemar |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Region | **0,9425** | 0,9415 | -0,0010 | -0,0008 | 1/3 | 0/3 | 0/3 |
+| Province | 0,5988 | **0,6006** | +0,0018 | +0,0007 | 2/3 | 0/3 | 0/3 |
+
+Province accuracy của MoE-2 là 0,6050; 0,6070 và 0,5897 ở seed 42/43/44.
+So với baseline cùng seed, chênh lệch lần lượt là +0,64; +1,63 và -1,73 điểm
+phần trăm. Province macro-F1 đổi tương ứng khoảng +0,46; +1,66 và -1,89 điểm.
+Hiệu ứng đổi dấu và trung bình rất nhỏ. Không có bootstrap CI accuracy nào loại
+trừ 0. Với balanced accuracy và macro-F1, CI seed 43 loại 0 theo hướng dương
+nhưng seed 44 loại 0 theo hướng âm; đây là bất ổn giữa initialization chứ không
+phải bằng chứng cải thiện lặp lại. Không McNemar test nào có ý nghĩa sau Holm
+correction. MoE vì vậy không đạt tiêu chí xác nhận đã khóa trước.
+
+### 25.2 Hành vi router
+
+Router có tham gia trực tiếp vào prediction, nhưng ở cả ba seed mean probability
+gần như chính xác `[0,5; 0,5]`, normalized per-sample entropy xấp xỉ 1,0 và số
+expert hiệu dụng xấp xỉ 2,0:
+
+| Seed | Mean expert probabilities | Normalized entropy | Effective experts |
+|---:|---:|---:|---:|
+| 42 | [0,4998; 0,5002] | 1,0000 | 2,0000 |
+| 43 | [0,5002; 0,4998] | 1,0000 | 2,0000 |
+| 44 | [0,5001; 0,4999] | 1,0000 | 2,0000 |
+
+Entropy được tính trên probability của từng mẫu trước khi lấy trung bình, nên
+kết quả này cho thấy soft router gần như không phân biệt expert cho mỗi input.
+Khi chuyển sang hard top-1, chênh lệch xác suất cực nhỏ quanh 0,5 lại tạo ra
+assignment collapse:
+
+| Seed | Top-1 counts | Expert lớn nhất | Top-1 entropy chuẩn hóa | Region NMI | Province NMI |
+|---:|---:|---:|---:|---:|---:|
+| 42 | [13; 2.010] | 0,9936 | 0,0560 | 0,0108 | 0,0068 |
+| 43 | [2.005; 18] | 0,9911 | 0,0734 | 0,0044 | 0,0095 |
+| 44 | [1.938; 85] | 0,9580 | 0,2515 | 0,0193 | 0,0187 |
+
+Từ 95,8% đến 99,4% mẫu được đưa vào một expert, trong khi expert chiếm ưu thế
+còn đổi từ expert 1 ở seed 42 sang expert 0 ở seed 43/44. Region/province NMI đều
+dưới 0,02, cho thấy assignment hầu như không liên hệ với cấu trúc vùng hoặc tỉnh.
+Vì vậy chẩn đoán đầy đủ là **soft routing indifference kết hợp hard top-1
+collapse**: xác suất không có margin nhưng phép argmax khuếch đại sai lệch rất
+nhỏ thành routing lệch hẳn. Đây không phải chuyên môn hóa expert có ý nghĩa.
+
+### 25.3 Kết luận H14
+
+**H14 là kết quả âm tính:** thêm hierarchical MoE-2 vào Large-VI
+acoustic+prosody không tạo cải thiện ổn định hoặc có ý nghĩa thống kê cho 63
+tỉnh, đồng thời giảm nhẹ kết quả vùng. Kết quả phù hợp với quan sát multi-seed
+trước đây rằng MoE có thể tăng ở một initialization nhưng không lặp lại ổn định.
+
+Mô hình cuối cho paper vẫn là **Large-VI acoustic+prosody không MoE**, checkpoint
+`best_province_accuracy`, kèm temperature scaling fit trên validation khi cần
+xác suất hiệu chỉnh. H14 không mở thêm sweep expert/top-k/loss trên repaired test.
+MoE được báo cáo như một ablation âm tính có kiểm định, giúp phân biệt đóng góp
+thực sự của backbone và prosody với độ phức tạp kiến trúc không cần thiết.
+
 ## 26. Phục hồi artifact sau khi server bị xóa
 
 Ngày 2026-08-02, server thực nghiệm không còn dữ liệu. Kiểm kê máy local phục hồi
