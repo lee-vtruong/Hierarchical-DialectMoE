@@ -1,0 +1,22 @@
+extends: h15_temporal_prosody_seed42.yaml
+
+model:
+  backbone: facebook/wav2vec2-base
+  use_safetensors: true
+  temporal_prosody:
+    enabled: true
+    hidden_dim: 128
+    num_heads: 4
+    max_frames: 32
+
+data:
+  max_seconds: 2
+  num_workers: 0
+
+training:
+  epochs: 1
+  batch_size: 2
+  gradient_accumulation_steps: 1
+  early_stopping_patience: 1
+  output_dir: outputs/h15_temporal_prosody_smoke
+

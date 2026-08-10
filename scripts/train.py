@@ -44,6 +44,8 @@ def evaluate(model, loader, device, loss_config) -> dict[str, float]:
             batch["attention_mask"],
             batch["prosody"],
             batch["spectral"],
+            batch["temporal_prosody"],
+            batch["temporal_prosody_mask"],
         )
         loss, _ = hierarchical_loss(
             output, batch["region_labels"], batch["province_labels"], loss_config
@@ -90,6 +92,8 @@ def main() -> None:
         use_prosody=bool(config["model"].get("use_prosody", True)),
         use_spectral=bool(config["model"].get("use_spectral", False)),
         prosody_feature_set=config["model"].get("prosody_feature_set", "legacy"),
+        use_temporal_prosody=bool(config["model"].get("temporal_prosody", {}).get("enabled", False)),
+        temporal_max_frames=int(config["model"].get("temporal_prosody", {}).get("max_frames", 256)),
     )
     train_loader = DataLoader(
         bundle.datasets["train"],
@@ -166,6 +170,8 @@ def main() -> None:
                     batch["attention_mask"],
                     batch["prosody"],
                     batch["spectral"],
+                    batch["temporal_prosody"],
+                    batch["temporal_prosody_mask"],
                 )
                 loss, parts = hierarchical_loss(
                     output,

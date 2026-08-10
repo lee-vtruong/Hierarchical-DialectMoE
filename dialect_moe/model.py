@@ -6,7 +6,7 @@ import torch
 from torch import nn
 from transformers import AutoModel
 
-from .prosody import prosody_feature_names
+from .prosody import TEMPORAL_PROSODY_FEATURE_NAMES, prosody_feature_names
 from .spectral import SPECTRAL_FEATURE_NAMES
 
 
@@ -96,6 +96,7 @@ class HierarchicalDialectMoE(nn.Module):
         self.use_acoustic = bool(model_config.get("use_acoustic", True))
         self.use_prosody = bool(model_config.get("use_prosody", True))
         self.use_spectral = bool(model_config.get("use_spectral", False))
+        self.use_temporal_prosody = bool(model_config.get("temporal_prosody", {}).get("enabled", False))
         self.prosody_feature_set = model_config.get(
             "prosody_feature_set", "legacy"
         )
@@ -149,6 +150,20 @@ class HierarchicalDialectMoE(nn.Module):
         num_experts = int(model_config["num_experts"])
 
         self.acoustic_projection = MLP(backbone_dim, acoustic_dim, acoustic_dim, dropout)
+        if self.use_temporal_prosody:
+            temporal_config = model_config["temporal_prosody"]
+            temporal_dim = int(temporal_config.get("hidden_dim", acoustic_dim))
+            self.temporal_projection = nn.Sequential(
+                nn.Linear(len(TEMPORAL_PROSODY_FEATURE_NAMES), temporal_dim),
+                nn.LayerNorm(temporal_dim), nn.GELU(),
+            )
+            self.temporal_key = nn.Linear(temporal_dim, acoustic_dim)
+            self.temporal_attention = nn.MultiheadAttention(
+                acoustic_dim, int(temporal_config.get("num_heads", 4)),
+                dropout=dropout, batch_first=True,
+            )
+            self.temporal_gate = nn.Sequential(nn.Linear(acoustic_dim * 2, acoustic_dim), nn.Sigmoid())
+            self.temporal_norm = nn.LayerNorm(acoustic_dim)
         self.prosody_encoder = MLP(
             len(prosody_feature_names(self.prosody_feature_set)),
             prosody_dim,
@@ -219,6 +234,8 @@ class HierarchicalDialectMoE(nn.Module):
         attention_mask: torch.Tensor | None,
         prosody: torch.Tensor,
         spectral: torch.Tensor | None = None,
+        temporal_prosody: torch.Tensor | None = None,
+        temporal_prosody_mask: torch.Tensor | None = None,
     ) -> DialectMoEOutput:
         if self.use_acoustic:
             if self.backbone is None:
@@ -227,9 +244,20 @@ class HierarchicalDialectMoE(nn.Module):
                 input_values=input_values,
                 attention_mask=attention_mask,
             ).last_hidden_state
-            acoustic = self.acoustic_projection(
-                self._masked_mean(encoded, attention_mask)
-            )
+            acoustic_sequence = self.acoustic_projection(encoded)
+            acoustic = self._masked_mean(acoustic_sequence, attention_mask)
+            if self.use_temporal_prosody:
+                if temporal_prosody is None:
+                    raise ValueError("temporal_prosody is required by this config")
+                temporal = self.temporal_key(self.temporal_projection(temporal_prosody))
+                attended, _ = self.temporal_attention(
+                    acoustic_sequence, temporal, temporal,
+                    key_padding_mask=None if temporal_prosody_mask is None else ~temporal_prosody_mask.bool(),
+                    need_weights=False,
+                )
+                temporal_acoustic = self._masked_mean(attended, attention_mask)
+                gate = self.temporal_gate(torch.cat([acoustic, temporal_acoustic], -1))
+                acoustic = self.temporal_norm(acoustic + gate * temporal_acoustic)
         else:
             acoustic = prosody.new_zeros(prosody.shape[0], self.acoustic_dim)
         if self.use_prosody:

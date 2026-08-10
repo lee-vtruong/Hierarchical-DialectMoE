@@ -73,6 +73,8 @@ def main() -> None:
         use_prosody=bool(config["model"].get("use_prosody", True)),
         use_spectral=bool(config["model"].get("use_spectral", False)),
         prosody_feature_set=config["model"].get("prosody_feature_set", "legacy"),
+        use_temporal_prosody=bool(config["model"].get("temporal_prosody", {}).get("enabled", False)),
+        temporal_max_frames=int(config["model"].get("temporal_prosody", {}).get("max_frames", 256)),
     )
     loader = DataLoader(
         bundle.datasets[args.split],
@@ -103,6 +105,8 @@ def main() -> None:
                 batch["attention_mask"],
                 batch["prosody"],
                 batch["spectral"],
+                batch["temporal_prosody"],
+                batch["temporal_prosody_mask"],
             )
             region_targets = batch["region_labels"].cpu().tolist()
             province_targets = batch["province_labels"].cpu().tolist()

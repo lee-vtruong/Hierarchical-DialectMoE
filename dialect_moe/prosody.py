@@ -32,6 +32,11 @@ PITCH_ENERGY_FEATURE_NAMES = [
     "voiced_fraction",
 ]
 
+TEMPORAL_PROSODY_FEATURE_NAMES = [
+    "log_rms", "zcr", "spectral_centroid", "spectral_bandwidth",
+    "spectral_rolloff", "pitch_autocorrelation",
+]
+
 _PITCH_ENERGY_INDICES = [0, 1, 2, 3, 7, 8, 9, 10, 11]
 
 
@@ -70,6 +75,48 @@ def _pitch_autocorrelation(
     pitch = sample_rate / (indices + min_lag).float()
     voiced = pitch[confidence >= 0.30]
     return voiced, pitch.numel()
+
+
+@torch.no_grad()
+def extract_temporal_prosody(
+    waveform: torch.Tensor, sample_rate: int, max_frames: int = 256
+) -> torch.Tensor:
+    """Extract an utterance-normalized, bounded prosodic trajectory."""
+    waveform = waveform.float().flatten()
+    frame_length = max(256, int(0.025 * sample_rate))
+    hop_length = max(80, int(0.010 * sample_rate))
+    if waveform.numel() < frame_length:
+        waveform = torch.nn.functional.pad(waveform, (0, frame_length - waveform.numel()))
+    waveform = waveform - waveform.mean()
+    frames = waveform.unfold(0, frame_length, hop_length)
+    if frames.shape[0] > max_frames:
+        frames = frames[torch.linspace(0, frames.shape[0] - 1, max_frames).long()]
+    windowed = frames * torch.hann_window(frame_length)
+    rms = frames.square().mean(-1).sqrt().clamp_min(1e-7).log()
+    zcr = (frames[:, :-1] * frames[:, 1:] < 0).float().mean(-1)
+    spectrum = torch.fft.rfft(windowed, dim=-1).abs().square().clamp_min(1e-10)
+    frequencies = torch.linspace(0, sample_rate / 2, spectrum.shape[-1])
+    normalizer = spectrum.sum(-1).clamp_min(1e-10)
+    centroid = (spectrum * frequencies).sum(-1) / normalizer
+    bandwidth = ((spectrum * (frequencies - centroid[:, None]).square()).sum(-1) / normalizer).sqrt()
+    cumulative = spectrum.cumsum(-1)
+    rolloff_bin = (cumulative >= 0.85 * cumulative[:, -1:]).float().argmax(-1)
+    rolloff = rolloff_bin.float() * (sample_rate / 2) / max(spectrum.shape[-1] - 1, 1)
+    min_lag, max_lag = max(1, sample_rate // 600), min(frame_length - 1, sample_rate // 50)
+    fft_size = 1 << math.ceil(math.log2(2 * frame_length - 1))
+    fft = torch.fft.rfft(windowed, n=fft_size)
+    corr = torch.fft.irfft(fft.abs().square(), n=fft_size)[..., :frame_length]
+    corr = corr / corr[..., :1].clamp_min(1e-8)
+    confidence, lag_index = corr[:, min_lag:max_lag + 1].max(-1)
+    pitch = sample_rate / (lag_index + min_lag).float()
+    pitch = torch.where(confidence >= 0.30, pitch, torch.zeros_like(pitch))
+    features = torch.stack(
+        [rms, zcr, centroid / 4000, bandwidth / 3000, rolloff / 8000, pitch / 300], -1
+    )
+    mean, std = features.mean(0, keepdim=True), features.std(0, unbiased=False, keepdim=True).clamp_min(1e-4)
+    normalized = (features - mean) / std
+    normalized[:, -1] = torch.where(pitch > 0, normalized[:, -1], 0.0)
+    return torch.nan_to_num(normalized).cpu()
 
 
 @torch.no_grad()

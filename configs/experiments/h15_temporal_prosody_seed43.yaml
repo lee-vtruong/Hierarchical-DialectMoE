@@ -1,0 +1,7 @@
+extends: h15_temporal_prosody_seed42.yaml
+
+seed: 43
+
+training:
+  output_dir: outputs/h15_temporal_prosody_seed43
+

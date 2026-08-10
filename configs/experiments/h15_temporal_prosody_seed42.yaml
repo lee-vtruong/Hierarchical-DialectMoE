@@ -1,0 +1,16 @@
+extends: h11_large_vi_prosody.yaml
+
+seed: 42
+
+model:
+  # H15-B: preserve the strong 12-D utterance branch and add a temporal
+  # prosody-conditioned adapter over acoustic frame representations.
+  temporal_prosody:
+    enabled: true
+    hidden_dim: 256
+    num_heads: 4
+    max_frames: 256
+
+training:
+  output_dir: outputs/h15_temporal_prosody_seed42
+
