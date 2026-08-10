@@ -2255,3 +2255,48 @@ mới hoàn tất code/config/hướng dẫn; chưa có bằng chứng local cho
 Kho phục hồi đủ để truy nguyên phần lớn bảng số liệu H3--H10 và tiếp tục viết
 paper, nhưng không thay thế checkpoint khi cần chạy lại inference hoặc phân tích
 prediction-level mới. Những phân tích đó sẽ yêu cầu tái huấn luyện.
+## 26. Bản thảo paper từ H11--H14
+
+Đã tạo bản thảo paper tiếng Anh theo template IEEE tại `Paper/` và khóa câu
+chuyện khoa học theo bằng chứng cuối cùng:
+
+- Đóng góp chính: Vietnamese-pretrained wav2vec 2.0, explicit 12-dimensional
+  prosodic--spectral descriptor, speaker-disjoint protocol, paired statistical
+  testing, calibration và efficiency.
+- Mô hình cuối: Large-VI acoustic + prosody không MoE, province macro-F1
+  `0,5950 ± 0,0072`, province accuracy `0,5988 ± 0,0082`, region macro-F1
+  `0,9412 ± 0,0018` trên repaired test.
+- Prosody trên Large-VI tăng province macro-F1 `+0,0539`; Large-VI so với Base-VI
+  khi có prosody tăng `+0,0686`. Các hiệu ứng cấp tỉnh lặp lại ở 3/3 seed và có ý
+  nghĩa theo speaker-bootstrap cùng Holm-corrected exact McNemar.
+- Temperature scaling fit trên validation giảm ECE test của mô hình cuối từ
+  `0,1608` xuống `0,0484`, không thay đổi accuracy.
+- H14 được báo cáo trung thực như negative result: MoE-2 chỉ tăng province
+  accuracy trung bình `+0,0018`, không có ý nghĩa, và hard top-1 routing dồn
+  `95,80%--99,36%` mẫu về một expert.
+- So với benchmark công bố ViMD, macro-F1 ba vùng tốt nhất là `0,9147` và 63 tỉnh
+  tốt nhất là `0,4107`; bản thảo chỉ gọi đây là published comparison vì protocol
+  cắt audio không hoàn toàn đồng nhất.
+
+Bản PDF kiểm tra có 5 trang: 4 trang nội dung kỹ thuật và trang 5 chỉ chứa
+references, phù hợp giới hạn paper thường của ICASSP 2027. File hoàn chỉnh nằm ở
+`output/pdf/Vietnamese_Dialect_Prosody_Paper.pdf`; hướng dẫn build và checklist
+trước khi nộp nằm trong `Paper/README_VI.md`.
+
+## 27. Mở rộng paper bằng hình pipeline, ablation và đối chiếu công bố
+
+Ngày 2026-08-06, paper được bổ sung hình pipeline ProsodyFuse dạng `figure*` xuyên
+hai cột. Bảng kết quả chính tiếp tục báo cáo ma trận Base/Large và acoustic/prosody;
+một bảng ablation riêng tổng hợp H3, H4, H5, H10 và H14, có ghi split để không trộn
+các protocol khác nhau.
+
+Khảo sát bổ sung tìm thấy ViP-VL (Interspeech 2026), hệ thống BEST-RQ ChunkFormer
+78M tham số, pretrain trên 17.000 giờ tiếng Việt. Bài này công bố macro-F1 93,24%
+cho 3 vùng và 57,17% cho 63 tỉnh trên ViMD. ProsodyFuse công bố tương ứng 94,12%
+và 59,50%, cao hơn 2,33 điểm ở cấp tỉnh. Tuy nhiên đây là published comparison,
+không phải so sánh kiểm soát hoàn toàn, do khác segmentation, pooling, lịch huấn
+luyện và repaired split của ta thay đổi ba test utterance.
+
+PDF sau cập nhật vẫn có 5 trang: nội dung kỹ thuật kết thúc ở trang 4; trang 5 chỉ
+có references. Build không có citation/reference chưa định nghĩa và không có
+overfull box.
