@@ -2300,3 +2300,50 @@ luyện và repaired split của ta thay đổi ba test utterance.
 PDF sau cập nhật vẫn có 5 trang: nội dung kỹ thuật kết thúc ở trang 4; trang 5 chỉ
 có references. Build không có citation/reference chưa định nghĩa và không có
 overfull box.
+
+## 28. H15-B: Temporal Prosody Adapter
+
+H15-B kiểm tra liệu chuỗi prosody theo thời gian có tốt hơn descriptor tĩnh 12
+chiều của ProsodyFuse hay không. Mỗi utterance được biểu diễn bằng tối đa 256
+frame gồm log-RMS, ZCR, spectral centroid, spectral bandwidth, spectral rolloff
+và F0 từ autocorrelation. Các chuỗi được chuẩn hóa trong từng utterance rồi đưa
+qua cross-attention và gated residual để điều kiện hóa acoustic representation
+của Wav2Vec2-Large-VI. Đối chứng được khóa trước là H11 Large-VI + static
+prosody, cùng speaker-disjoint repaired test và checkpoint chọn theo province
+accuracy trên validation.
+
+### 28.1 Kết quả ba seed
+
+| Seed | Region acc. | Region macro-F1 | Province acc. | Province balanced acc. | Province macro-F1 |
+|---:|---:|---:|---:|---:|---:|
+| 42 | 0,9451 | 0,9441 | 0,5838 | 0,5871 | 0,5782 |
+| 43 | 0,9446 | 0,9431 | 0,5744 | 0,5764 | 0,5718 |
+| 44 | 0,9417 | 0,9404 | 0,5858 | 0,5887 | 0,5847 |
+| **Mean ± SD** | **0,9438 ± 0,0019** | **0,9425 ± 0,0019** | **0,5813 ± 0,0061** | **0,5840 ± 0,0067** | **0,5782 ± 0,0065** |
+
+Ranking tỉnh trung bình đạt top-3 accuracy `0,7736 ± 0,0050`, top-5 accuracy
+`0,8487 ± 0,0028` và MRR `0,6999 ± 0,0018`.
+
+So với H11 Large-VI + static prosody, H15-B giảm province accuracy từ `0,5988`
+xuống `0,5813` (**-0,0175**) và province macro-F1 từ `0,5950` xuống `0,5782`
+(**-0,0168**). Region macro-F1 tăng rất nhỏ khoảng `+0,0013`, nhưng region không
+phải primary endpoint và trước đây đã gần bão hòa. Vì vậy H15-B không thay thế
+mô hình cuối H11.
+
+### 28.2 Diễn giải và quyết định
+
+Kết quả âm tính nhất quán cho thấy cách chuẩn hóa toàn utterance và lấy mẫu đều
+256 frame có thể loại bỏ mức F0/energy tuyệt đối hữu ích, trong khi cross-attention
+tạo thêm đường tối ưu hóa chưa đem lại thông tin tỉnh tương ứng. Không tiếp tục
+chồng speaker-adversarial loss trực tiếp lên H15-B vì như vậy sẽ khó phân biệt
+lợi ích của invariance với suy giảm từ temporal adapter.
+
+Quyết định hiện tại:
+
+- giữ **H11 Large-VI + static prosody** làm mô hình cuối;
+- báo cáo H15-B như negative ablation nếu phạm vi paper cho phép;
+- chỉ kết luận significance sau khi chạy paired speaker-bootstrap/McNemar trên
+  prediction JSONL của H11 và H15 cùng seed;
+- ưu tiên tiếp theo là controlled reproduction của ViP-VL hoặc một thí nghiệm
+  speaker-invariance độc lập trên baseline H11, chọn cấu hình hoàn toàn bằng
+  validation trước khi mở test.

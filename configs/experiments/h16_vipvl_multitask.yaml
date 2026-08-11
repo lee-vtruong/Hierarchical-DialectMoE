@@ -1,0 +1,70 @@
+encoder: chunkformer
+encoder_conf:
+  output_size: 512
+  attention_heads: 8
+  linear_units: 2048
+  num_blocks: 12
+  dropout_rate: 0.1
+  encoder_layerdrop: 0.05
+  positional_dropout_rate: 0.1
+  attention_dropout_rate: 0.1
+  input_layer: dw_striding
+  normalize_before: true
+  cnn_module_kernel: 15
+  use_cnn_module: true
+  activation_type: swish
+  pos_enc_layer_type: chunk_rel_pos
+  selfattention_layer_type: chunk_rel_seflattn
+  cnn_module_norm: layer_norm
+  dynamic_conv: true
+
+model: classification
+model_conf:
+  tasks:
+    region: 3
+    province: 63
+  dropout_rate: 0.1
+  label_smoothing: 0.1
+
+cmvn: global_cmvn
+cmvn_conf:
+  cmvn_file: data/h16_chunkformer/train/global_cmvn
+  is_json_cmvn: true
+
+dataset: classification
+dataset_conf:
+  tasks: [region, province]
+  filter_conf:
+    max_length: 2000
+    min_length: 1
+  resample_conf:
+    resample_rate: 16000
+  fbank_conf:
+    num_mel_bins: 80
+    frame_shift: 10
+    frame_length: 25
+    dither: 1.0
+  speed_perturb: false
+  spec_aug: false
+  shuffle: true
+  shuffle_conf:
+    shuffle_size: 1000
+  sort: false
+  batch_conf:
+    batch_type: dynamic
+    max_frames_in_batch: 16000
+    batch_size: 4
+    pad_feat: true
+
+grad_clip: 5.0
+accum_grad: 2
+max_epoch: 30
+log_interval: 100
+optim: adamw
+optim_conf:
+  lr: 0.00001
+  weight_decay: 0.000001
+scheduler: warmuplr
+scheduler_conf:
+  warmup_steps: 500
+
