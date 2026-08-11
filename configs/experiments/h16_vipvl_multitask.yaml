@@ -43,7 +43,9 @@ dataset_conf:
     num_mel_bins: 80
     frame_shift: 10
     frame_length: 25
-    dither: 1.0
+    # Deterministic train/dev/test preprocessing; augmentation is evaluated
+    # separately and must not make checkpoint selection stochastic.
+    dither: 0.0
   speed_perturb: false
   spec_aug: false
   shuffle: true
@@ -67,4 +69,3 @@ optim_conf:
 scheduler: warmuplr
 scheduler_conf:
   warmup_steps: 500
-

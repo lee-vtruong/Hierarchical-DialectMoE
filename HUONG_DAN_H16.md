@@ -94,6 +94,18 @@ python -u scripts/prepare_h16_chunkformer.py \
   2>&1 | tee logs/h16_prepare.log
 ```
 
+Exporter cắt **20 giây đầu** trước khi ghi FLAC, giống H11. Nếu dữ liệu H16 đã
+được tạo bởi phiên bản cũ từng xuất toàn bộ utterance, bắt buộc chạy lại với
+`--overwrite`; nếu không ChunkFormer sẽ lọc các file dài và làm sai protocol:
+
+```bash
+python -u scripts/prepare_h16_chunkformer.py \
+  --config configs/experiments/h11_large_vi_prosody.yaml \
+  --destination data/h16_chunkformer \
+  --overwrite \
+  2>&1 | tee logs/h16_prepare_overwrite.log
+```
+
 Chuyển TSV sang format JSONL của upstream và dùng global CMVN từ pretraining:
 
 ```bash

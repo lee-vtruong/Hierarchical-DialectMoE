@@ -27,6 +27,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--config", default="configs/experiments/h11_large_vi_prosody.yaml")
     parser.add_argument("--destination", default="data/h16_chunkformer")
     parser.add_argument("--max-samples", type=int)
+    parser.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="Rewrite existing FLAC files (required after changing crop protocol).",
+    )
     return parser.parse_args()
 
 
@@ -47,6 +52,7 @@ def main() -> None:
     bundle = load_vimd(config, max_samples=args.max_samples)
     destination = Path(args.destination).resolve()
     sample_rate = int(config["data"]["sample_rate"])
+    max_samples_per_audio = int(float(config["data"]["max_seconds"]) * sample_rate)
     audio_column = config["data"]["audio_column"]
     filename_column = config["data"].get("filename_column", "filename")
     speaker_column = config["data"].get("speaker_column", "speakerID")
@@ -74,8 +80,12 @@ def main() -> None:
                 filename = str(example.get(filename_column, ""))
                 key = safe_key(source_split, index, filename)
                 audio_path = audio_dir / f"{key}.flac"
-                if not audio_path.is_file():
-                    sf.write(audio_path, decode_audio(example[audio_column], sample_rate), sample_rate, format="FLAC")
+                if args.overwrite or not audio_path.is_file():
+                    waveform = decode_audio(example[audio_column], sample_rate)
+                    # Match the H11/H15 protocol exactly: deterministic first-N
+                    # seconds, never discard an utterance because it is long.
+                    waveform = waveform[:max_samples_per_audio]
+                    sf.write(audio_path, waveform, sample_rate, format="FLAC")
                 region_id = bundle.region_vocab.encode(normalize_region(example[region_column]))
                 province_id = bundle.province_vocab.encode(example[province_column])
                 writer.writerow(
