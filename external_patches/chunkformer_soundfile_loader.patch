@@ -1,0 +1,45 @@
+diff --git a/chunkformer/dataset/processor.py b/chunkformer/dataset/processor.py
+index 0b63f99..fa1cc34 100644
+--- a/chunkformer/dataset/processor.py
++++ b/chunkformer/dataset/processor.py
+@@ -20,6 +20,7 @@ import librosa
+ import torch
+ import torch.nn.functional as F
+ import torchaudio
++import soundfile as sf
+ import torchaudio.compliance.kaldi as kaldi
+ from torch.nn.utils.rnn import pad_sequence
+ 
+@@ -118,19 +119,19 @@ def decode_wav(sample):
+     if isinstance(wav_file, str):
+         with open(wav_file, "rb") as f:
+             wav_file = f.read()
+-    if "start" in sample:
+-        assert "end" in sample
+-        with io.BytesIO(wav_file) as file_obj:
+-            sample_rate = torchaudio.info(file_obj).sample_rate
+-            start_frame = int(sample["start"] * sample_rate)
+-            end_frame = int(sample["end"] * sample_rate)
+-            file_obj.seek(0)
+-            waveform, _ = torchaudio.load(
+-                file_obj, num_frames=end_frame - start_frame, frame_offset=start_frame
+-            )
+-    else:
+-        with io.BytesIO(wav_file) as file_obj:
+-            waveform, sample_rate = torchaudio.load(file_obj)
++    # torchaudio >= 2.6 routes decoding through TorchCodec. Use libsndfile for
++    # local WAV/FLAC data so this recipe remains independent of the exact
++    # TorchCodec/FFmpeg/PyTorch version combination.
++    with io.BytesIO(wav_file) as file_obj:
++        audio, sample_rate = sf.read(
++            file_obj, dtype="float32", always_2d=True
++        )
++    waveform = torch.from_numpy(audio.T.copy())
++    if "start" in sample:
++        assert "end" in sample
++        start_frame = int(sample["start"] * sample_rate)
++        end_frame = int(sample["end"] * sample_rate)
++        waveform = waveform[:, start_frame:end_frame]
+     # del wav_file
+     del sample["wav"]
+     sample["wav"] = waveform  # overwrite wav

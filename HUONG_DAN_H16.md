@@ -32,6 +32,25 @@ python -c "import chunkformer; print('ChunkFormer import OK')"
 
 Không commit `external/chunkformer` vào repository chính.
 
+Với torchaudio mới, upstream yêu cầu TorchCodec để đọc cả file local. Áp dụng
+patch SoundFile có version control của dự án trước khi train:
+
+```bash
+git -C external/chunkformer apply --check \
+  ../../external_patches/chunkformer_soundfile_loader.patch
+
+git -C external/chunkformer apply \
+  ../../external_patches/chunkformer_soundfile_loader.patch
+
+git -C external/chunkformer diff --check
+```
+
+Nếu `apply --check` báo patch đã được áp dụng, kiểm tra bằng:
+
+```bash
+grep -n "libsndfile" external/chunkformer/chunkformer/dataset/processor.py
+```
+
 Kiểm tra dependency trước; chỉ cài gói thực sự thiếu:
 
 ```bash
