@@ -7,6 +7,18 @@ import subprocess
 import sys
 
 
+def discover_epochs(experiment: Path) -> list[int]:
+    epochs = []
+    for checkpoint in experiment.glob("epoch_*.pt"):
+        suffix = checkpoint.stem.removeprefix("epoch_")
+        if suffix.isdigit():
+            epochs.append(int(suffix))
+    epochs = sorted(set(epochs))
+    if not epochs:
+        raise FileNotFoundError(f"No epoch_*.pt checkpoints found in {experiment}")
+    return epochs
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Evaluate H16 checkpoints on validation.")
     parser.add_argument("--chunkformer-root", default="external/chunkformer")
@@ -21,11 +33,18 @@ def main() -> None:
     experiment = (root / args.experiment).resolve()
     data = (root / args.data).resolve()
     expected_lines = sum(1 for line in data.open(encoding="utf-8") if line.strip()) + 1
-    epochs = range(30)
+    all_epochs = discover_epochs(experiment)
+    epochs = all_epochs
     if args.epochs == "even":
-        epochs = range(0, 30, 2)
+        epochs = [epoch for epoch in epochs if epoch % 2 == 0]
     elif args.epochs == "odd":
-        epochs = range(1, 30, 2)
+        epochs = [epoch for epoch in epochs if epoch % 2 == 1]
+
+    print(
+        f"Discovered {len(all_epochs)} checkpoints; processing {len(epochs)} "
+        f"{args.epochs} checkpoints (epochs {epochs[0]}..{epochs[-1]}).",
+        flush=True,
+    )
 
     environment = os.environ.copy()
     environment["PYTHONPATH"] = str(chunkformer) + os.pathsep + environment.get("PYTHONPATH", "")
@@ -65,4 +84,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

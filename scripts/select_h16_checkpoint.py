@@ -8,6 +8,18 @@ from pathlib import Path
 from sklearn.metrics import accuracy_score, f1_score
 
 
+def discover_epochs(experiment: Path) -> list[int]:
+    epochs = []
+    for checkpoint in experiment.glob("epoch_*.pt"):
+        suffix = checkpoint.stem.removeprefix("epoch_")
+        if suffix.isdigit():
+            epochs.append(int(suffix))
+    epochs = sorted(set(epochs))
+    if not epochs:
+        raise FileNotFoundError(f"No epoch_*.pt checkpoints found in {experiment}")
+    return epochs
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Select H16 checkpoint using validation province macro-F1.")
     parser.add_argument("--experiment", default="outputs/h16_vipvl_seed777_fixed20s")
@@ -20,9 +32,11 @@ def main() -> None:
         for line in handle:
             row = json.loads(line)
             labels[row["key"]] = (int(row["region_label"]), int(row["province_label"]))
+    experiment = Path(args.experiment)
+    epochs = discover_epochs(experiment)
     rows = []
-    for epoch in range(30):
-        path = Path(args.experiment) / "validation" / f"epoch_{epoch}" / "predictions.tsv"
+    for epoch in epochs:
+        path = experiment / "validation" / f"epoch_{epoch}" / "predictions.tsv"
         if not path.is_file():
             raise FileNotFoundError(path)
         predictions = {}
@@ -52,7 +66,7 @@ def main() -> None:
         writer.writeheader()
         writer.writerows(rows)
     best = dict(rows[0])
-    best["checkpoint"] = str(Path(args.experiment) / f"epoch_{best['epoch']}.pt")
+    best["checkpoint"] = str(experiment / f"epoch_{best['epoch']}.pt")
     json_path = destination / "h16_best_validation_checkpoint.json"
     json_path.write_text(json.dumps(best, indent=2), encoding="utf-8")
     print("Top 10 validation checkpoints:")
@@ -64,4 +78,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
