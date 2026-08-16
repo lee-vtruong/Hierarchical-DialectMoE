@@ -1,0 +1,14 @@
+extends: h17b_layermix_asp_seed42.yaml
+
+model:
+  # The smoke test uses the smaller Vietnamese backbone to exercise hidden
+  # state mixing and ASP without allocating the full Large model.
+  backbone: nguyenvulebinh/wav2vec2-base-vi
+
+training:
+  output_dir: outputs/h17b_layermix_asp_smoke
+  epochs: 1
+  batch_size: 2
+  gradient_accumulation_steps: 1
+  early_stopping_patience: 1
+

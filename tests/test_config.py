@@ -77,3 +77,27 @@ def test_h11_vietnamese_backbone_matrix():
         assert config["training"]["compact_best_checkpoints"] is True
         assert config["training"]["save_best_loss_checkpoint"] is False
         assert config["training"]["save_legacy_best_checkpoint"] is False
+
+
+def test_h17_pooling_ablation_configs():
+    root = Path(__file__).resolve().parents[1]
+    asp = load_config(
+        root / "configs" / "experiments" / "h17a_asp_seed42.yaml"
+    )
+    layer_mix = load_config(
+        root / "configs" / "experiments" / "h17b_layermix_asp_seed44.yaml"
+    )
+
+    assert asp["model"]["acoustic_pooling"]["type"] == "attentive_statistics"
+    assert "layer_mix" not in asp["model"]
+    assert asp["model"]["backbone"] == "nguyenvulebinh/wav2vec2-large-vi"
+    assert asp["model"]["use_moe"] is False
+
+    assert layer_mix["seed"] == 44
+    assert layer_mix["model"]["layer_mix"] == {
+        "enabled": True,
+        "last_n_layers": 8,
+    }
+    assert layer_mix["training"]["output_dir"] == (
+        "outputs/h17b_layermix_asp_seed44"
+    )

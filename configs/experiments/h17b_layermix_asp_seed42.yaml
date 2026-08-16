@@ -1,0 +1,14 @@
+extends: h17a_asp_seed42.yaml
+
+seed: 42
+
+model:
+  # Mix only the last eight encoder representations. This limits interface
+  # memory while covering the upper/middle layers implicated in accent cues.
+  layer_mix:
+    enabled: true
+    last_n_layers: 8
+
+training:
+  output_dir: outputs/h17b_layermix_asp_seed42
+

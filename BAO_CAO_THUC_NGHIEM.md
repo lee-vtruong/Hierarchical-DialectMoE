@@ -2347,3 +2347,52 @@ Quyết định hiện tại:
 - ưu tiên tiếp theo là controlled reproduction của ViP-VL hoặc một thí nghiệm
   speaker-invariance độc lập trên baseline H11, chọn cấu hình hoàn toàn bằng
   validation trước khi mở test.
+
+## 29. H16: controlled ViP-VL/ChunkFormer reproduction
+
+H16 dùng checkpoint công bố `khanhld/vip-vl-base-vie`, code ChunkFormer chính
+thức và cùng repaired speaker-disjoint manifest của dự án. Audio được cắt xác
+định ở 20 giây đầu để khớp H11. Hai head region/province được huấn luyện đa
+nhiệm; checkpoint chỉ được chọn bằng province macro-F1 trên validation. Do
+đường validation còn tăng ở epoch 29 và 59, huấn luyện được mở rộng theo protocol
+định trước đến 90 epoch. Epoch 86 được chọn, với validation region accuracy
+`0,9212`, province accuracy `0,2980` và province macro-F1 `0,2450`. Sau khi khóa
+checkpoint, test được mở đúng một lần.
+
+| Mô hình | Seed | Region test accuracy | Province test accuracy |
+|---|---:|---:|---:|
+| H11 Large-VI + static prosody | mean 42/43/44 | 0,9425 | 0,5988 |
+| H16 ViP-VL reproduction | 777 | 0,9110 | 0,2654 |
+
+H16 thấp hơn H11 khoảng `3,15` điểm phần trăm ở region và `33,33` điểm ở
+province. Đây là **negative controlled reproduction**, không phải bằng chứng
+rằng mô hình ViP-VL gốc yếu: H16 chỉ có một seed và recipe downstream, crop,
+speaker split, multitask heads khác công bố. Vì khoảng cách rất lớn và validation
+đã bắt đầu bão hòa quanh epoch 85--89, H16 được đóng; không tiếp tục tăng epoch
+hay chỉnh recipe sau khi đã nhìn test. Artifact selection nằm trong
+`results_archive/h16/`, checkpoint được khóa là `epoch_86.pt`.
+
+## 30. Thiết kế H17: LayerMix và attentive statistics pooling
+
+H11 chỉ dùng hidden state layer cuối của Wav2Vec2-Large-VI và masked mean theo
+thời gian. H17 kiểm tra backend biểu diễn mạnh hơn trong khi giữ nguyên backbone,
+static prosody, fusion, loss, speaker split và lịch huấn luyện:
+
+- **H17-A (ASP):** layer cuối, nhưng thay mean bằng attention-weighted mean và
+  standard deviation rồi chiếu về `acoustic_dim`;
+- **H17-B (LayerMix-ASP):** học softmax scalar mixture của 8 hidden layer cuối,
+  sau đó dùng cùng ASP như H17-A;
+- **H11:** đối chứng mean pooling đã khóa.
+
+LayerMix khởi tạo đều để không thiên vị layer, còn attention bỏ qua padding bằng
+frame mask nội suy từ waveform mask. Mặc định model vẫn dùng `mean`, nên state
+dict H11--H15 không thay đổi. Metrics H17 lưu thêm pooling type và learned layer
+weights để phân tích.
+
+Protocol tránh test leakage: chạy smoke; train H17-A/B seed 42; evaluate
+validation bằng checkpoint `best_province_accuracy`; chọn một kiến trúc theo
+province macro-F1 validation; sau đó mới xác nhận seed 43/44. Chỉ cấu hình đã
+khóa mới được mở test và so paired với H11 cùng seed. Không sweep số layer,
+attention dimension hoặc loss trên test. Code/config nằm trong
+`dialect_moe/model.py`, `configs/experiments/h17*`,
+`scripts/summarize_h17.py`; quy trình đầy đủ ở `HUONG_DAN_H17.md`.

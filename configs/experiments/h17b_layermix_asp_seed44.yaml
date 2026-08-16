@@ -1,0 +1,7 @@
+extends: h17b_layermix_asp_seed42.yaml
+
+seed: 44
+
+training:
+  output_dir: outputs/h17b_layermix_asp_seed44
+

@@ -255,6 +255,7 @@ def main() -> None:
             ),
             "mrr": float(np.mean(reciprocal_ranks)),
         },
+        "representation": model.representation_diagnostics(),
     }
     output_dir = (
         Path(args.output_dir)

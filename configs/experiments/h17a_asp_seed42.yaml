@@ -1,0 +1,14 @@
+extends: h11_large_vi_prosody.yaml
+
+seed: 42
+
+model:
+  # H17-A changes only temporal pooling. The backbone still exposes its final
+  # hidden layer, which is projected before attentive mean/std aggregation.
+  acoustic_pooling:
+    type: attentive_statistics
+    attention_hidden_dim: 128
+
+training:
+  output_dir: outputs/h17a_asp_seed42
+

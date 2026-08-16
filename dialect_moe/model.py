@@ -25,6 +25,75 @@ class MLP(nn.Module):
         return self.network(inputs)
 
 
+class LayerMix(nn.Module):
+    """Learn a normalized scalar mixture over the last SSL encoder layers."""
+
+    def __init__(self, num_layers: int):
+        super().__init__()
+        if num_layers < 1:
+            raise ValueError("num_layers must be positive")
+        self.num_layers = num_layers
+        # Zero initialization makes the initial interface an exact uniform mix.
+        self.layer_logits = nn.Parameter(torch.zeros(num_layers))
+
+    @property
+    def weights(self) -> torch.Tensor:
+        return torch.softmax(self.layer_logits, dim=0)
+
+    def forward(self, hidden_states: tuple[torch.Tensor, ...]) -> torch.Tensor:
+        if len(hidden_states) < self.num_layers:
+            raise ValueError(
+                f"Backbone returned {len(hidden_states)} hidden states, but "
+                f"LayerMix requires {self.num_layers}"
+            )
+        selected = torch.stack(hidden_states[-self.num_layers :], dim=1)
+        weights = self.weights.to(dtype=selected.dtype).view(1, -1, 1, 1)
+        return (selected * weights).sum(dim=1)
+
+
+class AttentiveStatisticsPooling(nn.Module):
+    """Pool a sequence using learned attention-weighted mean and deviation."""
+
+    def __init__(
+        self,
+        input_dim: int,
+        attention_hidden_dim: int,
+        output_dim: int,
+        dropout: float,
+    ):
+        super().__init__()
+        self.attention = nn.Sequential(
+            nn.Linear(input_dim, attention_hidden_dim),
+            nn.Tanh(),
+            nn.Linear(attention_hidden_dim, 1),
+        )
+        self.output = nn.Sequential(
+            nn.Linear(input_dim * 2, output_dim),
+            nn.LayerNorm(output_dim),
+            nn.GELU(),
+            nn.Dropout(dropout),
+        )
+
+    def forward(
+        self,
+        sequence: torch.Tensor,
+        mask: torch.Tensor | None = None,
+    ) -> torch.Tensor:
+        scores = self.attention(sequence).squeeze(-1)
+        if mask is not None:
+            if mask.shape != scores.shape:
+                raise ValueError(
+                    f"Pooling mask shape {tuple(mask.shape)} does not match "
+                    f"sequence scores {tuple(scores.shape)}"
+                )
+            scores = scores.masked_fill(~mask.bool(), torch.finfo(scores.dtype).min)
+        weights = torch.softmax(scores, dim=1).unsqueeze(-1)
+        mean = (weights * sequence).sum(dim=1)
+        variance = (weights * (sequence - mean[:, None, :]).square()).sum(dim=1)
+        deviation = variance.clamp_min(1e-5).sqrt()
+        return self.output(torch.cat([mean, deviation], dim=-1))
+
+
 class SparseMixtureOfExperts(nn.Module):
     def __init__(
         self,
@@ -149,7 +218,46 @@ class HierarchicalDialectMoE(nn.Module):
         fusion_dim = int(model_config["fusion_dim"])
         num_experts = int(model_config["num_experts"])
 
+        layer_mix_config = model_config.get("layer_mix", {})
+        if not isinstance(layer_mix_config, dict):
+            raise ValueError("model.layer_mix must be a mapping")
+        self.use_layer_mix = bool(layer_mix_config.get("enabled", False))
+        self.layer_mix_last_n = int(layer_mix_config.get("last_n_layers", 8))
+        if self.use_layer_mix:
+            if self.backbone is None:
+                raise ValueError("LayerMix requires model.use_acoustic=true")
+            available_layers = int(self.backbone.config.num_hidden_layers) + 1
+            if self.layer_mix_last_n > available_layers:
+                raise ValueError(
+                    f"last_n_layers={self.layer_mix_last_n} exceeds the "
+                    f"{available_layers} hidden states exposed by the backbone"
+                )
+            self.layer_mixer = LayerMix(self.layer_mix_last_n)
+
+        pooling_config = model_config.get("acoustic_pooling", "mean")
+        if isinstance(pooling_config, str):
+            pooling_type = pooling_config
+            pooling_config = {"type": pooling_type}
+        elif isinstance(pooling_config, dict):
+            pooling_type = pooling_config.get("type", "mean")
+        else:
+            raise ValueError("model.acoustic_pooling must be a string or mapping")
+        if pooling_type not in {"mean", "attentive_statistics"}:
+            raise ValueError(
+                "model.acoustic_pooling.type must be mean or attentive_statistics"
+            )
+        self.acoustic_pooling_type = pooling_type
+
         self.acoustic_projection = MLP(backbone_dim, acoustic_dim, acoustic_dim, dropout)
+        if self.acoustic_pooling_type == "attentive_statistics":
+            self.attentive_statistics_pooling = AttentiveStatisticsPooling(
+                input_dim=acoustic_dim,
+                attention_hidden_dim=int(
+                    pooling_config.get("attention_hidden_dim", 128)
+                ),
+                output_dim=acoustic_dim,
+                dropout=dropout,
+            )
         if self.use_temporal_prosody:
             temporal_config = model_config["temporal_prosody"]
             temporal_dim = int(temporal_config.get("hidden_dim", acoustic_dim))
@@ -216,17 +324,51 @@ class HierarchicalDialectMoE(nn.Module):
         )
 
     @staticmethod
+    def _frame_mask(
+        attention_mask: torch.Tensor | None,
+        sequence_length: int,
+    ) -> torch.Tensor | None:
+        if attention_mask is None:
+            return None
+        return torch.nn.functional.interpolate(
+            attention_mask[:, None].float(),
+            size=sequence_length,
+            mode="nearest",
+        ).squeeze(1).bool()
+
+    @staticmethod
     def _masked_mean(
         hidden_states: torch.Tensor, attention_mask: torch.Tensor | None
     ) -> torch.Tensor:
         if attention_mask is None:
             return hidden_states.mean(dim=1)
-        mask = torch.nn.functional.interpolate(
-            attention_mask[:, None].float(),
-            size=hidden_states.shape[1],
-            mode="nearest",
-        ).squeeze(1)
+        mask = HierarchicalDialectMoE._frame_mask(
+            attention_mask, hidden_states.shape[1]
+        ).float()
         return (hidden_states * mask[..., None]).sum(dim=1) / mask.sum(dim=1, keepdim=True).clamp_min(1)
+
+    def _pool_acoustic(
+        self,
+        sequence: torch.Tensor,
+        attention_mask: torch.Tensor | None,
+    ) -> torch.Tensor:
+        if self.acoustic_pooling_type == "mean":
+            return self._masked_mean(sequence, attention_mask)
+        frame_mask = self._frame_mask(attention_mask, sequence.shape[1])
+        return self.attentive_statistics_pooling(sequence, frame_mask)
+
+    def representation_diagnostics(self) -> dict:
+        diagnostics = {
+            "acoustic_pooling": self.acoustic_pooling_type,
+            "layer_mix_enabled": self.use_layer_mix,
+            "layer_mix_last_n": self.layer_mix_last_n if self.use_layer_mix else 1,
+            "layer_weights": None,
+        }
+        if self.use_layer_mix:
+            diagnostics["layer_weights"] = (
+                self.layer_mixer.weights.detach().float().cpu().tolist()
+            )
+        return diagnostics
 
     def forward(
         self,
@@ -240,12 +382,18 @@ class HierarchicalDialectMoE(nn.Module):
         if self.use_acoustic:
             if self.backbone is None:
                 raise RuntimeError("Acoustic input is enabled but backbone is missing")
-            encoded = self.backbone(
+            backbone_output = self.backbone(
                 input_values=input_values,
                 attention_mask=attention_mask,
-            ).last_hidden_state
+                output_hidden_states=self.use_layer_mix,
+            )
+            encoded = (
+                self.layer_mixer(backbone_output.hidden_states)
+                if self.use_layer_mix
+                else backbone_output.last_hidden_state
+            )
             acoustic_sequence = self.acoustic_projection(encoded)
-            acoustic = self._masked_mean(acoustic_sequence, attention_mask)
+            acoustic = self._pool_acoustic(acoustic_sequence, attention_mask)
             if self.use_temporal_prosody:
                 if temporal_prosody is None:
                     raise ValueError("temporal_prosody is required by this config")
