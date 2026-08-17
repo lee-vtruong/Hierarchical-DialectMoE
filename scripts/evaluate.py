@@ -86,7 +86,10 @@ def main() -> None:
     )
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = HierarchicalDialectMoE(
-        config["model"], len(bundle.region_vocab), len(bundle.province_vocab)
+        config["model"],
+        len(bundle.region_vocab),
+        len(bundle.province_vocab),
+        province_to_region=bundle.province_to_region,
     ).to(device)
     checkpoint = torch.load(args.checkpoint, map_location="cpu", weights_only=False)
     model.load_state_dict(checkpoint["model"])
@@ -172,6 +175,11 @@ def main() -> None:
     routing = np.concatenate(router_probabilities)
     rankings = np.concatenate(province_rankings)
     province_targets_array = np.asarray(targets_province)
+    region_targets_array = np.asarray(targets_region)
+    region_predictions_array = np.asarray(predictions_region)
+    province_predictions_array = np.asarray(predictions_province)
+    province_to_region = np.asarray(bundle.province_to_region)
+    predicted_province_regions = province_to_region[province_predictions_array]
     reciprocal_ranks = []
     for target, ranking in zip(province_targets_array, rankings):
         rank = int(np.where(ranking == target)[0][0]) + 1
@@ -256,6 +264,14 @@ def main() -> None:
             "mrr": float(np.mean(reciprocal_ranks)),
         },
         "representation": model.representation_diagnostics(),
+        "hierarchy": {
+            "prediction_region_consistency": float(
+                np.mean(predicted_province_regions == region_predictions_array)
+            ),
+            "province_cross_region_error_rate": float(
+                np.mean(predicted_province_regions != region_targets_array)
+            ),
+        },
     }
     output_dir = (
         Path(args.output_dir)

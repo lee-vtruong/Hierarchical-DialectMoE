@@ -101,3 +101,19 @@ def test_h17_pooling_ablation_configs():
     assert layer_mix["training"]["output_dir"] == (
         "outputs/h17b_layermix_asp_seed44"
     )
+
+
+def test_h18_soft_hierarchy_configs_keep_h11_representation():
+    root = Path(__file__).resolve().parents[1]
+    config = load_config(
+        root / "configs" / "experiments" / "h18_soft_hierarchy_seed43.yaml"
+    )
+
+    assert config["seed"] == 43
+    assert config["model"]["province_head"]["type"] == "soft_hierarchical"
+    assert config["model"]["backbone"] == "nguyenvulebinh/wav2vec2-large-vi"
+    assert config["model"]["use_prosody"] is True
+    assert config["model"]["use_moe"] is False
+    assert "acoustic_pooling" not in config["model"]
+    assert "layer_mix" not in config["model"]
+    assert config["training"]["output_dir"] == "outputs/h18_soft_hierarchy_seed43"

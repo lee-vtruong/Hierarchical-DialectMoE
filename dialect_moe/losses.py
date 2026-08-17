@@ -13,7 +13,11 @@ def hierarchical_loss(
     config: dict,
 ) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
     region_loss = F.cross_entropy(output.region_logits, region_labels)
-    province_loss = F.cross_entropy(output.province_logits, province_labels)
+    province_loss = (
+        F.nll_loss(output.conditional_province_log_probs, province_labels)
+        if output.conditional_province_log_probs is not None
+        else F.cross_entropy(output.province_logits, province_labels)
+    )
 
     # Lower router entropy encourages confident specialization. Load balancing
     # prevents the confidence objective from collapsing all samples to one expert.
@@ -32,4 +36,3 @@ def hierarchical_loss(
         "router_entropy": router_entropy.detach(),
         "load_balance_loss": output.load_balance_loss.detach(),
     }
-

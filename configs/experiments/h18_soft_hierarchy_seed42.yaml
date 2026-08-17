@@ -1,0 +1,13 @@
+extends: h11_large_vi_prosody.yaml
+
+seed: 42
+
+model:
+  # Factorize the 63-way posterior through the known three-region taxonomy.
+  # Region probabilities remain soft; no argmax mask is used.
+  province_head:
+    type: soft_hierarchical
+
+training:
+  output_dir: outputs/h18_soft_hierarchy_seed42
+

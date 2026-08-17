@@ -30,3 +30,31 @@ class LabelVocabulary:
     def __len__(self) -> int:
         return len(self.labels)
 
+
+def build_province_to_region(
+    pairs: list[tuple[object, object]],
+    region_vocab: LabelVocabulary,
+    province_vocab: LabelVocabulary,
+) -> list[int]:
+    """Build and validate the one-to-one province-to-region label mapping."""
+    mapping = [-1] * len(province_vocab)
+    for province_value, region_value in pairs:
+        province_id = province_vocab.encode(province_value)
+        region_id = region_vocab.encode(normalize_region(region_value))
+        previous = mapping[province_id]
+        if previous not in {-1, region_id}:
+            province = province_vocab.decode(province_id)
+            raise ValueError(
+                f"Province {province!r} maps to multiple regions: "
+                f"{region_vocab.decode(previous)!r} and "
+                f"{region_vocab.decode(region_id)!r}"
+            )
+        mapping[province_id] = region_id
+    missing = [
+        province_vocab.decode(index)
+        for index, region_id in enumerate(mapping)
+        if region_id < 0
+    ]
+    if missing:
+        raise ValueError(f"Provinces missing a region mapping: {missing}")
+    return mapping

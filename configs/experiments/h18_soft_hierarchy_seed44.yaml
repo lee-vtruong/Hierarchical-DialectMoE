@@ -1,0 +1,7 @@
+extends: h18_soft_hierarchy_seed42.yaml
+
+seed: 44
+
+training:
+  output_dir: outputs/h18_soft_hierarchy_seed44
+

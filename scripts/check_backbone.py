@@ -36,8 +36,15 @@ def main() -> None:
             "This backbone only publishes pytorch_model.bin. "
             f"PyTorch >= 2.6 is required; found {torch.__version__}."
         )
+    synthetic_mapping = [
+        province_id % args.num_regions
+        for province_id in range(args.num_provinces)
+    ]
     model = HierarchicalDialectMoE(
-        model_config, args.num_regions, args.num_provinces
+        model_config,
+        args.num_regions,
+        args.num_provinces,
+        province_to_region=synthetic_mapping,
     )
     trainable = sum(parameter.numel() for parameter in model.parameters())
     backbone_parameters = (

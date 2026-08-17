@@ -117,7 +117,10 @@ def main() -> None:
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = HierarchicalDialectMoE(
-        config["model"], len(bundle.region_vocab), len(bundle.province_vocab)
+        config["model"],
+        len(bundle.region_vocab),
+        len(bundle.province_vocab),
+        province_to_region=bundle.province_to_region,
     ).to(device)
     backbone_parameters, head_parameters = [], []
     for name, parameter in model.named_parameters():

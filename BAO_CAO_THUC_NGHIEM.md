@@ -2396,3 +2396,126 @@ khóa mới được mở test và so paired với H11 cùng seed. Không sweep 
 attention dimension hoặc loss trên test. Code/config nằm trong
 `dialect_moe/model.py`, `configs/experiments/h17*`,
 `scripts/summarize_h17.py`; quy trình đầy đủ ở `HUONG_DAN_H17.md`.
+
+### 30.1 Screening validation seed 42
+
+H17-A và H17-B được train độc lập ở seed 42; checkpoint từng run vẫn được chọn
+theo province validation accuracy như H11. Kết quả chỉ dùng split validation:
+
+| Model | Region acc. | Region macro-F1 | Province acc. | Province balanced acc. | Province macro-F1 |
+|---|---:|---:|---:|---:|---:|
+| H11 Large-VI + static prosody | -- | -- | 0,6432 | 0,6394 | 0,6242 |
+| H17-A final-layer ASP | 0,9490 | 0,9481 | 0,6064 | 0,6005 | 0,5900 |
+| H17-B LayerMix-ASP | **0,9538** | **0,9521** | **0,6474** | **0,6417** | **0,6300** |
+
+ASP đơn lẻ làm giảm province accuracy `-0,0368` so với H11 seed 42, nên H17-A
+được đóng và không chạy thêm seed/test. Thêm LayerMix phục hồi hoàn toàn suy giảm
+của ASP: H17-B hơn H17-A `+0,0410` province accuracy và `+0,0400` province
+macro-F1. So với H11, H17-B tăng validation province accuracy `+0,0042`,
+balanced accuracy `+0,0023` và macro-F1 `+0,0059`.
+
+Tám learned layer weights của H17-B là `[0,1169; 0,1222; 0,1218; 0,1162;
+0,1261; 0,1346; 0,1388; 0,1234]`. Phân bố không collapse vào một layer, nhưng
+nghiêng nhẹ về các layer gần cuối. Đây là bằng chứng cơ chế hợp lý hơn router
+MoE H14 vốn collapse. Theo gate định trước, H17-B được khóa làm ứng viên duy nhất
+cho validation multi-seed 43/44. Test vẫn đóng cho đến khi hiệu ứng validation
+được kiểm tra qua đủ ba seed.
+
+### 30.2 Xác nhận multi-seed và quyết định đóng H17
+
+H17-B được chạy thêm seed 43/44 mà không thay đổi cấu hình. Kết quả validation:
+
+| Seed | Region acc. | Region macro-F1 | Province acc. | Province balanced acc. | Province macro-F1 |
+|---:|---:|---:|---:|---:|---:|
+| 42 | 0,9538 | 0,9521 | 0,6474 | 0,6417 | 0,6300 |
+| 43 | 0,9490 | 0,9475 | 0,5586 | 0,5514 | 0,5325 |
+| 44 | 0,9475 | 0,9460 | 0,5476 | 0,5401 | 0,5216 |
+| **Mean ± SD** | **0,9501 ± 0,0033** | **0,9485 ± 0,0032** | **0,5845 ± 0,0547** | **0,5777 ± 0,0557** | **0,5614 ± 0,0597** |
+
+Province validation accuracy H11 Large-VI + static prosody ở seed 42/43/44 lần
+lượt là `0,6432`, `0,6421`, `0,6527`, trung bình `0,6460`. Chênh lệch H17-B
+so với H11 cùng seed là `+0,0042`, `-0,0836`, `-0,1051`; trung bình H17-B thấp
+hơn `-0,0615`. Hiệu ứng seed 42 vì vậy không lặp lại và không được xem là cải
+thiện.
+
+Layer weights seed 43/44 gần phân bố đều hơn seed 42 và không hình thành pattern
+ổn định giữa initialization. H17-B vẫn cho region validation tốt, nhưng region
+đã gần bão hòa và province là primary endpoint. Độ lệch chuẩn province khoảng
+5,5--6,0 điểm cũng cho thấy backend mới làm tối ưu hóa cấp tỉnh kém ổn định.
+
+Theo gate định trước, **H17 là negative result và không được mở test**. H11
+Large-VI + static prosody tiếp tục là mô hình cuối. Không sweep `last_n_layers`,
+attention dimension hay learning rate sau khi thấy kết quả này. Hướng tiếp theo
+nếu mở protocol mới phải thay đổi giả thuyết độc lập, ưu tiên soft hierarchical
+province factorization hoặc nhánh phonetic/CTC, và vẫn chọn hoàn toàn trên
+validation trước test.
+
+## 31. Thiết kế H18: soft hierarchical province factorization
+
+### 31.1 Động cơ
+
+H11 có hai head vùng và tỉnh, nhưng province head vẫn là classifier phẳng 63
+lớp. Khi `use_moe=false`, region posterior không tham gia trực tiếp vào dự đoán
+tỉnh. H14 cho thấy đưa cấu trúc vùng vào router MoE không tạo chuyên môn hóa ổn
+định; H17 cho thấy backend pooling phức tạp hơn cũng không lặp lại qua seed.
+H18 vì vậy kiểm tra một giả thuyết trực tiếp hơn và trực giao với hai kết quả âm
+trên: dùng taxonomy vùng–tỉnh ngay tại output distribution.
+
+Với tỉnh $p$ thuộc vùng cố định $r(p)$, H18 định nghĩa:
+
+\[
+P(p\mid x)=P(r(p)\mid x)P(p\mid r(p),x).
+\]
+
+Các province logits được chuẩn hóa riêng trong từng vùng. Region logits được
+softmax trên ba vùng; sau đó hai log-posterior được cộng để tạo posterior chung
+63 tỉnh. Đây không phải hard routing: không có `argmax` vùng, không loại bỏ vùng
+có xác suất thấp, và gradient vẫn khả vi hoàn toàn.
+
+### 31.2 Loss và kiểm soát biến gây nhiễu
+
+H18 giữ nguyên loss weight của H11 nhưng dùng đúng phân rã có điều kiện:
+
+\[
+\mathcal{L}_{H18}=0.4\,\mathrm{CE}(r,y_r)
++1.0\,\mathrm{NLL}(p\mid r(p),y_p).
+\]
+
+Không dùng joint province NLL trực tiếp trong loss vì joint NLL đã chứa thêm
+một region NLL; cộng tiếp region CE của H11 sẽ vô tình đổi effective region
+weight từ `0,4` thành `1,4`. Cách triển khai hiện tại giữ đúng weighting H11,
+trong khi inference vẫn dùng joint posterior mềm.
+
+Mapping tỉnh → vùng được dựng từ metadata trên toàn bộ Arrow table trước khi áp
+dụng split manifest. Code từ chối chạy nếu một tỉnh ánh xạ vào nhiều vùng, nếu
+thiếu tỉnh, hoặc nếu region id ngoài miền hợp lệ. Mapping là buffer không
+persistent và không phải tham số học; province head vẫn có 63 output. Do đó H18
+không tăng số trainable parameter so với H11.
+
+Ngoài accuracy, balanced accuracy và macro-F1, evaluation lưu thêm:
+
+- `prediction_region_consistency`: vùng của tỉnh dự đoán có trùng region-head
+  prediction hay không;
+- `province_cross_region_error_rate`: tỉnh dự đoán có thuộc sai vùng thật hay
+  không.
+
+### 31.3 Protocol định trước
+
+H18 giữ nguyên Large-VI backbone, static prosody, mean pooling, gated fusion,
+speaker-disjoint manifest, crop 20 giây, optimizer, effective batch size và
+checkpoint selection theo province validation accuracy của H11. Protocol gồm:
+
+1. smoke test với 16 mẫu;
+2. screening H18 seed 42 chỉ trên validation;
+3. nếu seed 42 vượt H11 về province accuracy, province macro-F1 giảm không quá
+   `0,003` và region accuracy giảm không quá `0,005`, khóa cấu hình và chạy seed
+   43/44;
+4. chỉ mở test khi mean province accuracy và macro-F1 không thấp hơn H11, H18
+   thắng accuracy ít nhất 2/3 seed và mean region accuracy giảm không quá
+   `0,005`;
+5. nếu gate thất bại, ghi H18 là negative validation result và không mở test.
+
+Gate được thực thi bởi `scripts/compare_h18.py`; tổng hợp riêng nằm trong
+`scripts/summarize_h18.py`. Quy trình terminal đầy đủ nằm ở
+`HUONG_DAN_H18.md`. Mục này mới mô tả thiết kế; chưa có kết quả H18 và không có
+con số test nào được suy diễn trước khi chạy.

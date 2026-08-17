@@ -13,7 +13,7 @@ import torch
 from datasets import Audio, DatasetDict, concatenate_datasets, load_dataset
 from transformers import AutoFeatureExtractor
 
-from .labels import LabelVocabulary, normalize_region
+from .labels import LabelVocabulary, build_province_to_region, normalize_region
 from .prosody import extract_prosody, extract_temporal_prosody, prosody_feature_names
 from .spectral import SPECTRAL_FEATURE_NAMES, extract_spectral
 
@@ -23,6 +23,7 @@ class DatasetBundle:
     datasets: DatasetDict
     region_vocab: LabelVocabulary
     province_vocab: LabelVocabulary
+    province_to_region: list[int]
 
 
 def _apply_split_manifest(
@@ -116,6 +117,14 @@ def load_vimd(config: dict[str, Any], max_samples: int | None = None) -> Dataset
         province_values.extend(dataset.unique(data_config["province_column"]))
     region_vocab = LabelVocabulary(region_values)
     province_vocab = LabelVocabulary(province_values)
+    province_region_pairs: list[tuple[object, object]] = []
+    for dataset in datasets.values():
+        province_column = dataset[data_config["province_column"]]
+        region_column = dataset[data_config["region_column"]]
+        province_region_pairs.extend(zip(province_column, region_column))
+    province_to_region = build_province_to_region(
+        province_region_pairs, region_vocab, province_vocab
+    )
 
     if data_config.get("split_manifest"):
         datasets = _apply_split_manifest(
@@ -141,6 +150,7 @@ def load_vimd(config: dict[str, Any], max_samples: int | None = None) -> Dataset
         datasets=datasets,
         region_vocab=region_vocab,
         province_vocab=province_vocab,
+        province_to_region=province_to_region,
     )
 
 

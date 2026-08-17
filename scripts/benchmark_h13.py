@@ -82,7 +82,10 @@ def main() -> None:
 
     device = torch.device("cuda")
     model = HierarchicalDialectMoE(
-        config["model"], len(bundle.region_vocab), len(bundle.province_vocab)
+        config["model"],
+        len(bundle.region_vocab),
+        len(bundle.province_vocab),
+        province_to_region=bundle.province_to_region,
     ).to(device)
     checkpoint = torch.load(args.checkpoint, map_location="cpu", weights_only=False)
     model.load_state_dict(checkpoint["model"])

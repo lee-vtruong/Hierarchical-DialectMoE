@@ -10,6 +10,38 @@ from .prosody import TEMPORAL_PROSODY_FEATURE_NAMES, prosody_feature_names
 from .spectral import SPECTRAL_FEATURE_NAMES
 
 
+def soft_hierarchical_province_log_probs(
+    region_logits: torch.Tensor,
+    conditional_province_logits: torch.Tensor,
+    province_to_region: torch.Tensor,
+) -> torch.Tensor:
+    """Return log P(province|x)=log P(region|x)+log P(province|region,x)."""
+    if region_logits.ndim != 2 or conditional_province_logits.ndim != 2:
+        raise ValueError("Region and province logits must be rank-two tensors")
+    if conditional_province_logits.shape[1] != province_to_region.numel():
+        raise ValueError("Province logits and province-to-region mapping disagree")
+    num_regions = region_logits.shape[1]
+    if (
+        province_to_region.min().item() < 0
+        or province_to_region.max().item() >= num_regions
+    ):
+        raise ValueError("Province-to-region mapping contains an invalid region id")
+    log_normalizers = []
+    for region_id in range(num_regions):
+        mask = province_to_region == region_id
+        if not mask.any():
+            raise ValueError(f"Region {region_id} has no province classes")
+        log_normalizers.append(
+            torch.logsumexp(conditional_province_logits[:, mask], dim=-1)
+        )
+    log_normalizers = torch.stack(log_normalizers, dim=-1)
+    conditional_log_probs = conditional_province_logits - log_normalizers[
+        :, province_to_region
+    ]
+    region_log_probs = torch.log_softmax(region_logits, dim=-1)
+    return conditional_log_probs + region_log_probs[:, province_to_region]
+
+
 class MLP(nn.Module):
     def __init__(self, input_dim: int, hidden_dim: int, output_dim: int, dropout: float):
         super().__init__()
@@ -157,10 +189,17 @@ class DialectMoEOutput:
     router_logits: torch.Tensor
     router_probabilities: torch.Tensor
     load_balance_loss: torch.Tensor
+    conditional_province_log_probs: torch.Tensor | None = None
 
 
 class HierarchicalDialectMoE(nn.Module):
-    def __init__(self, model_config: dict, num_regions: int, num_provinces: int):
+    def __init__(
+        self,
+        model_config: dict,
+        num_regions: int,
+        num_provinces: int,
+        province_to_region: list[int] | None = None,
+    ):
         super().__init__()
         self.use_acoustic = bool(model_config.get("use_acoustic", True))
         self.use_prosody = bool(model_config.get("use_prosody", True))
@@ -322,6 +361,34 @@ class HierarchicalDialectMoE(nn.Module):
             nn.Dropout(dropout),
             nn.Linear(fusion_dim, num_provinces),
         )
+        province_head_config = model_config.get("province_head", "flat")
+        if isinstance(province_head_config, str):
+            self.province_head_type = province_head_config
+        elif isinstance(province_head_config, dict):
+            self.province_head_type = province_head_config.get("type", "flat")
+        else:
+            raise ValueError("model.province_head must be a string or mapping")
+        if self.province_head_type not in {"flat", "soft_hierarchical"}:
+            raise ValueError(
+                "model.province_head.type must be flat or soft_hierarchical"
+            )
+        if self.province_head_type == "soft_hierarchical":
+            if province_to_region is None:
+                raise ValueError(
+                    "Soft hierarchical province head requires province_to_region"
+                )
+            if len(province_to_region) != num_provinces:
+                raise ValueError(
+                    "province_to_region length must equal num_provinces"
+                )
+            mapping = torch.tensor(province_to_region, dtype=torch.long)
+            if mapping.min().item() < 0 or mapping.max().item() >= num_regions:
+                raise ValueError("province_to_region contains an invalid region id")
+            # The mapping comes from the dataset on every run; keeping it out of
+            # state_dict preserves strict compatibility for legacy checkpoints.
+            self.register_buffer(
+                "province_to_region_index", mapping, persistent=False
+            )
 
     @staticmethod
     def _frame_mask(
@@ -363,6 +430,7 @@ class HierarchicalDialectMoE(nn.Module):
             "layer_mix_enabled": self.use_layer_mix,
             "layer_mix_last_n": self.layer_mix_last_n if self.use_layer_mix else 1,
             "layer_weights": None,
+            "province_head": self.province_head_type,
         }
         if self.use_layer_mix:
             diagnostics["layer_weights"] = (
@@ -465,11 +533,27 @@ class HierarchicalDialectMoE(nn.Module):
             expert_features = fused
             balance_loss = fused.new_zeros(())
             router_probabilities = torch.softmax(router_logits, dim=-1)
-        province_logits = self.province_head(expert_features)
+        raw_province_logits = self.province_head(expert_features)
+        conditional_province_log_probs = None
+        if self.province_head_type == "soft_hierarchical":
+            province_logits = soft_hierarchical_province_log_probs(
+                region_logits,
+                raw_province_logits,
+                self.province_to_region_index,
+            )
+            # Optimize the conditional term separately from the existing
+            # region CE. This keeps H11's 0.4:1.0 task weighting unchanged;
+            # using the joint log posterior here would count region CE twice.
+            conditional_province_log_probs = province_logits - torch.log_softmax(
+                region_logits, dim=-1
+            )[:, self.province_to_region_index]
+        else:
+            province_logits = raw_province_logits
         return DialectMoEOutput(
             region_logits=region_logits,
             province_logits=province_logits,
             router_logits=router_logits,
             router_probabilities=router_probabilities,
             load_balance_loss=balance_loss,
+            conditional_province_log_probs=conditional_province_log_probs,
         )

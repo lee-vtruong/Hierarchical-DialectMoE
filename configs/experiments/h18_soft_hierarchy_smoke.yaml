@@ -1,0 +1,12 @@
+extends: h18_soft_hierarchy_seed42.yaml
+
+model:
+  backbone: nguyenvulebinh/wav2vec2-base-vi
+
+training:
+  output_dir: outputs/h18_soft_hierarchy_smoke
+  epochs: 1
+  batch_size: 2
+  gradient_accumulation_steps: 1
+  early_stopping_patience: 1
+
